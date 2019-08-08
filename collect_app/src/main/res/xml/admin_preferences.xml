@@ -6,8 +6,8 @@
         android:title="@string/general_preferences">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetClass="org.odk.collect.android.preferences.PreferencesActivity"
-            android:targetPackage="org.odk.collect.android">
+            android:targetClass="ch.novelt.gts.odk.collect.android.preferences.PreferencesActivity"
+            android:targetPackage="ch.novelt.gts.odk.collect.android">
             <extra
                 android:name="adminMode"
                 android:value="true" />
@@ -18,7 +18,7 @@
         android:key="admin_password"
         android:title="@string/admin_password" />
 
-    <org.odk.collect.android.preferences.ResetDialogPreference
+    <ch.novelt.gts.odk.collect.android.preferences.ResetDialogPreference
         android:dialogTitle="@string/reset_settings_dialog_title"
         android:key="reset_settings"
         android:negativeButtonText="@string/cancel"

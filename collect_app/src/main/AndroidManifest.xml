@@ -9,7 +9,7 @@ the specific language governing permissions and limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="org.odk.collect.android">
+    package="ch.novelt.gts.odk.collect.android">
 
     <uses-feature
         android:name="android.hardware.location"
@@ -189,7 +189,8 @@ the specific language governing permissions and limitations under the License.
             android:name="firebase_crashlytics_collection_enabled"
             android:value="@bool/FIREBASE_ENABLED" />
 
-        <meta-data android:name="firebase_analytics_collection_enabled"
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
             android:value="@bool/FIREBASE_ENABLED" />
 
         <uses-library
@@ -208,11 +209,11 @@ the specific language governing permissions and limitations under the License.
 
         <provider
             android:name=".provider.FormsProvider"
-            android:authorities="org.odk.collect.android.provider.odk.forms"
+            android:authorities="ch.novelt.gts.odk.collect.android.provider.odk.forms"
             android:exported="true" />
         <provider
             android:name=".provider.InstanceProvider"
-            android:authorities="org.odk.collect.android.provider.odk.instances"
+            android:authorities="ch.novelt.gts.odk.collect.android.provider.odk.instances"
             android:exported="true" />
 
         <activity-alias
@@ -260,15 +261,15 @@ the specific language governing permissions and limitations under the License.
             android:name=".activities.FormDownloadList"
             android:targetActivity=".activities.FormDownloadList">
             <intent-filter>
-                <action android:name="org.odk.collect.android.FORM_DOWNLOAD" />
-                <category android:name="android.intent.category.DEFAULT"/>
+                <action android:name="ch.novelt.gts.odk.collect.android.FORM_DOWNLOAD" />
+                <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="vnd.android.cursor.dir/vnd.odk.form" />
             </intent-filter>
         </activity-alias>
 
         <activity-alias
             android:name=".activities.InstanceUploaderList"
-            android:targetActivity=".activities.InstanceUploaderListActivity" >
+            android:targetActivity=".activities.InstanceUploaderListActivity">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
@@ -281,8 +282,8 @@ the specific language governing permissions and limitations under the License.
             android:name=".activities.InstanceUploaderActivity"
             android:targetActivity=".activities.InstanceUploaderActivity">
             <intent-filter>
-                <action android:name="org.odk.collect.android.INSTANCE_UPLOAD" />
-                <category android:name="android.intent.category.DEFAULT"/>
+                <action android:name="ch.novelt.gts.odk.collect.android.INSTANCE_UPLOAD" />
+                <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="vnd.android.cursor.dir/vnd.odk.instance" />
             </intent-filter>
         </activity-alias>
