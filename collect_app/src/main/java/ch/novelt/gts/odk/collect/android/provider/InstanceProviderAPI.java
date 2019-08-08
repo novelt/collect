@@ -38,8 +38,8 @@ public final class InstanceProviderAPI {
         }
 
         public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/instances");
-        public static final String CONTENT_TYPE = "vnd.android.cursor.dir/vnd.odk.instance";
-        public static final String CONTENT_ITEM_TYPE = "vnd.android.cursor.item/vnd.odk.instance";
+        public static final String CONTENT_TYPE = "vnd.android.cursor.dir/vnd.odk_gts.instance";
+        public static final String CONTENT_ITEM_TYPE = "vnd.android.cursor.item/vnd.odk_gts.instance";
 
         // instance column names
         public static final String DISPLAY_NAME = "displayName";
