@@ -328,12 +328,12 @@ public class FormEntryActivity extends CollectAbstractActivity implements Animat
 
         compositeDisposable
                 .add(eventBus
-                .register(ReadPhoneStatePermissionRxEvent.class)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(event -> {
-                    readPhoneStatePermissionRequestNeeded = true;
-                }));
+                        .register(ReadPhoneStatePermissionRxEvent.class)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(event -> {
+                            readPhoneStatePermissionRequestNeeded = true;
+                        }));
 
         errorMessage = null;
 
@@ -1889,6 +1889,8 @@ public class FormEntryActivity extends CollectAbstractActivity implements Animat
                         })
                 .setView(listView).create();
         alertDialog.show();
+
+        listView.performItemClick(listView.getAdapter().getView(items.size() - 1, null, null), items.size() - 1, listView.getItemIdAtPosition(items.size() - 1));
     }
 
     // Cleanup when user exits a form without saving
@@ -2484,11 +2486,11 @@ public class FormEntryActivity extends CollectAbstractActivity implements Animat
         FormController formController = getFormController();
         switch (saveStatus) {
             case SaveToDiskTask.SAVED:
-                ToastUtils.showShortToast(R.string.data_saved_ok);
+//                ToastUtils.showShortToast(R.string.data_saved_ok);
                 formController.getAuditEventLogger().logEvent(AuditEvent.AuditEventType.FORM_SAVE, false);
                 break;
             case SaveToDiskTask.SAVED_AND_EXIT:
-                ToastUtils.showShortToast(R.string.data_saved_ok);
+//                ToastUtils.showShortToast(R.string.data_saved_ok);
                 formController.getAuditEventLogger().logEvent(AuditEvent.AuditEventType.FORM_SAVE, false);
                 if (saveResult.isComplete()) {
                     formController.getAuditEventLogger().logEvent(AuditEvent.AuditEventType.FORM_EXIT, false);
