@@ -208,11 +208,11 @@ the specific language governing permissions and limitations under the License.
 
         <provider
             android:name=".provider.FormsProvider"
-            android:authorities="${applicationId}.android.provider.odk.forms"
+            android:authorities="${applicationId}.provider.odk.forms"
             android:exported="true" />
         <provider
             android:name=".provider.InstanceProvider"
-            android:authorities="${applicationId}.android.provider.odk.instances"
+            android:authorities="${applicationId}.provider.odk.instances"
             android:exported="true" />
 
         <activity-alias
