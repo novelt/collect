@@ -126,7 +126,7 @@ public class SplashScreenActivity extends Activity {
         }
     }
 
-    private void endSplashScreen() {
+    protected void endSplashScreen() {
         startActivity(new Intent(this, MainMenuActivity.class));
         finish();
     }

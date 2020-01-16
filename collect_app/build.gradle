@@ -38,25 +38,25 @@ def getMasterCommitCount = { ->
     }
 }
 
-def getVersionName = { ->
-    try {
-        def stdout = new ByteArrayOutputStream()
-        exec {
-            switch (ant.properties.os) {
-                case 'windows':
-                    commandLine 'cmd', '/c', 'git', 'describe', '--tags', '--dirty', '--always'
-                    break
-                case 'unix':
-                    commandLine 'git', 'describe', '--tags', '--dirty', '--always'
-                    break
-            }
-            standardOutput = stdout
-        }
-        return stdout.toString().trim()
-    } catch (ignored) {
-        return null
-    }
-}
+//def getVersionName = { ->
+//    try {
+//        def stdout = new ByteArrayOutputStream()
+//        exec {
+//            switch (ant.properties.os) {
+//                case 'windows':
+//                    commandLine 'cmd', '/c', 'git', 'describe', '--tags', '--dirty', '--always'
+//                    break
+//                case 'unix':
+//                    commandLine 'git', 'describe', '--tags', '--dirty', '--always'
+//                    break
+//            }
+//            standardOutput = stdout
+//        }
+//        return stdout.toString().trim()
+//    } catch (ignored) {
+//        return null
+//    }
+//}
 
 def secretsFile = file('secrets.properties')
 def secrets = new Properties()
@@ -74,46 +74,55 @@ android {
         minSdkVersion(16)
         targetSdkVersion(26)
         versionCode LEGACY_BUILD_NUMBER_OFFSET + getMasterCommitCount()
-        versionName getVersionName()
+        versionName ""
         testInstrumentationRunner('androidx.test.runner.AndroidJUnitRunner')
         multiDexEnabled true
         vectorDrawables.useSupportLibrary = true
         archivesBaseName = 'collect'
+
+        flavorDimensions "dimension"
+
+        productFlavors {
+            gts {
+                dimension "dimension"
+                applicationId "ch.novelt.gts.odk.collect.android"
+                versionCode 1
+                versionName ""
+                archivesBaseName = "collect-v$versionCode$versionName"
+            }
+        }
     }
 
     signingConfigs {
-        release {
-            if (secrets.getProperty('RELEASE_STORE_FILE')) {
-                storeFile file(secrets.getProperty('RELEASE_STORE_FILE'))
-                storePassword secrets.getProperty('RELEASE_STORE_PASSWORD')
-                keyAlias secrets.getProperty('RELEASE_KEY_ALIAS')
-                keyPassword secrets.getProperty('RELEASE_KEY_PASSWORD')
-            }
+        novelt {
+            keyAlias 'vts_tracker'
+            keyPassword '4.N0V3lT.tracker'
+            storeFile file('C:/Users/yb/Dropbox (Novel-T Sarl)/Novel-T - Common/Android/Novel-T.Android.Keystore')
+//            storeFile file('Novel-T.Android.Keystore')
+            storePassword '4.N0V3lT'
         }
     }
 
     buildTypes {
         // Release build for all forks
         release {
-            if (secrets.getProperty('RELEASE_STORE_FILE')) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.novelt
             minifyEnabled(true)
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
             resValue("bool", "FIREBASE_ENABLED", "false")
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             buildConfigField 'String', "MAPBOX_ACCESS_TOKEN", '"' + mapboxToken + '"'
+            versionNameSuffix "$name"
         }
         // Release build for the official ODK Collect app
         odkCollectRelease {
-            if (secrets.getProperty('RELEASE_STORE_FILE')) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.novelt
             minifyEnabled(true)
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
             resValue("bool", "FIREBASE_ENABLED", "true")
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             buildConfigField 'String', "MAPBOX_ACCESS_TOKEN", '"' + mapboxToken + '"'
+            versionNameSuffix "$name"
         }
         debug {
             debuggable(true)
@@ -121,20 +130,21 @@ android {
             resValue("bool", "FIREBASE_ENABLED", "false")
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             buildConfigField 'String', "MAPBOX_ACCESS_TOKEN", '"' + mapboxToken + '"'
+            versionNameSuffix "$name"
         }
     }
 
     // https://stackoverflow.com/a/27119543/152938
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            outputFileName = new File(outputFileName.replace(".apk", "-${defaultConfig.versionName}.apk"))
-        }
-    }
-    testVariants.all { variant ->
-        variant.outputs.all { output ->
-            outputFileName = new File(outputFileName.replace(".apk", "-${defaultConfig.versionName}.apk"))
-        }
-    }
+//    applicationVariants.all { variant ->
+//        variant.outputs.all { output ->
+//            outputFileName = new File(outputFileName.replace(".apk", "-${defaultConfig.versionName}.apk"))
+//        }
+//    }
+//    testVariants.all { variant ->
+//        variant.outputs.all { output ->
+//            outputFileName = new File(outputFileName.replace(".apk", "-${defaultConfig.versionName}.apk"))
+//        }
+//    }
 
     packagingOptions {
         // Pick first occurrence of any files that cause conflicts, as defined
@@ -282,7 +292,8 @@ dependencies {
     // Dagger:
     implementation "com.google.dagger:dagger:${rootProject.daggerVersion}"
     annotationProcessor "com.google.dagger:dagger-compiler:${rootProject.daggerVersion}"
-    testAnnotationProcessor "com.google.dagger:dagger-compiler:${rootProject.daggerVersion}" // Needed for injection into Robolectric tests
+    testAnnotationProcessor "com.google.dagger:dagger-compiler:${rootProject.daggerVersion}"
+    // Needed for injection into Robolectric tests
 
     // Dagger Android:
     implementation "com.google.dagger:dagger-android:${rootProject.daggerVersion}"
@@ -356,6 +367,3 @@ dependencies {
 // Must be at bottom to prevent dependency collisions
 // https://developers.google.com/android/guides/google-services-plugin
 apply plugin: 'com.google.gms.google-services'
-
-
-

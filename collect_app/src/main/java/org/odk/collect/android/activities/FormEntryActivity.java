@@ -1831,7 +1831,7 @@ public class FormEntryActivity extends CollectAbstractActivity implements Animat
      * Create a dialog with options to save and exit or quit without
      * saving
      */
-    private void createQuitDialog() {
+    protected void createQuitDialog() {
         String title;
         {
             FormController formController = getFormController();
@@ -1860,19 +1860,7 @@ public class FormEntryActivity extends CollectAbstractActivity implements Animat
                 if (item.getTextResId() == R.string.keep_changes) {
                     saveDataToDisk(EXIT, InstancesDaoHelper.isInstanceComplete(false), null);
                 } else {
-                    // close all open databases of external data.
-                    ExternalDataManager manager = Collect.getInstance().getExternalDataManager();
-                    if (manager != null) {
-                        manager.close();
-                    }
-
-                    FormController formController = getFormController();
-                    if (formController != null) {
-                        formController.getAuditEventLogger().logEvent(AuditEvent.AuditEventType.FORM_EXIT, true);
-                    }
-                    removeTempInstance();
-                    MediaManager.INSTANCE.revertChanges();
-                    finishReturnInstance();
+                    exitWithoutSaving();
                 }
                 alertDialog.dismiss();
             }
@@ -1889,6 +1877,22 @@ public class FormEntryActivity extends CollectAbstractActivity implements Animat
                         })
                 .setView(listView).create();
         alertDialog.show();
+    }
+
+    protected void exitWithoutSaving() {
+        // close all open databases of external data.
+        ExternalDataManager manager = Collect.getInstance().getExternalDataManager();
+        if (manager != null) {
+            manager.close();
+        }
+
+        FormController formController = getFormController();
+        if (formController != null) {
+            formController.getAuditEventLogger().logEvent(AuditEvent.AuditEventType.FORM_EXIT, true);
+        }
+        removeTempInstance();
+        MediaManager.INSTANCE.revertChanges();
+        finishReturnInstance();
     }
 
     // Cleanup when user exits a form without saving

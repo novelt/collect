@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="org.odk.collect.android">
+
+    <application>
+
+        <activity
+            android:name="org.odk.collect.android.activities.SplashScreenActivity"
+            tools:node="remove" />
+
+        <activity-alias
+            android:name="org.odk.collect.android.activities.SplashScreenActivity"
+            tools:node="remove" />
+
+        <activity
+            android:name="ch.novelt.gts.odk.collect.android.activities.GtsSplashScreenActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+
+        <activity
+            android:name="org.odk.collect.android.activities.FormEntryActivity"
+            tools:node="remove" />
+
+        <activity-alias
+            android:name="org.odk.collect.android.activities.FormEntryActivity"
+            tools:node="remove" />
+
+        <activity
+            android:name="ch.novelt.gts.odk.collect.android.activities.GtsFormEntryActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.EDIT" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="vnd.android.cursor.item/vnd.odk.form" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.odk.instance" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>
