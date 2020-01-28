@@ -37,11 +37,9 @@
             android:name="ch.novelt.gts.odk.collect.android.activities.GtsFormEntryActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.intent.action.EDIT" />
+                <action android:name="GTS" />
 
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="GTS" />
 
                 <data android:mimeType="vnd.android.cursor.item/vnd.odk.form" />
                 <data android:mimeType="vnd.android.cursor.item/vnd.odk.instance" />
