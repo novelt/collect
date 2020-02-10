@@ -24,6 +24,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".activities.MainMenuActivity"
+            android:configChanges="locale|orientation|screenSize"
+            android:exported="true" />
 
         <activity
             android:name="org.odk.collect.android.activities.FormEntryActivity"
