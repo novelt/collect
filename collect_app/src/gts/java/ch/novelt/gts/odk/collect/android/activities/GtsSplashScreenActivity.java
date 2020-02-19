@@ -5,6 +5,8 @@ import android.os.Bundle;
 import org.odk.collect.android.R;
 import org.odk.collect.android.activities.SplashScreenActivity;
 import org.odk.collect.android.application.Collect;
+import org.odk.collect.android.preferences.AdminKeys;
+import org.odk.collect.android.preferences.AdminSharedPreferences;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -21,6 +23,9 @@ public class GtsSplashScreenActivity extends SplashScreenActivity {
 
     @Override
     protected void endSplashScreen() {
+        AdminSharedPreferences.getInstance().save(AdminKeys.KEY_SAVE_MID, false);
+        AdminSharedPreferences.getInstance().save(AdminKeys.KEY_ACCESS_SETTINGS, false);
+        AdminSharedPreferences.getInstance().save(AdminKeys.KEY_MARK_AS_FINALIZED, false);
         try {
             final BufferedWriter writer = new BufferedWriter(new FileWriter(FILE_PERMS_OK));
             writer.write("OK");
