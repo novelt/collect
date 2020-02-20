@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/holo_red_dark"
+    android:background="#457fe8"
     android:gravity="center_vertical|center_horizontal"
     android:orientation="vertical"
     android:padding="10dip">
@@ -67,5 +67,5 @@
         android:id="@+id/back"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Go back to GTS" />
+        android:text="@string/back_to_gts" />
 </LinearLayout>
