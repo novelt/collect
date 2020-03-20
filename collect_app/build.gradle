@@ -86,8 +86,8 @@ android {
             gts {
                 dimension "dimension"
                 applicationId "ch.novelt.gts.odk.collect.android"
-                versionCode 1
-                versionName "0.1.0"
+                versionCode 2
+                versionName "1.0"
                 archivesBaseName = "collect-v$versionCode$versionName"
             }
         }
@@ -97,8 +97,7 @@ android {
         novelt {
             keyAlias 'vts_tracker'
             keyPassword '4.N0V3lT.tracker'
-            storeFile file('C:/Users/yb/Dropbox (Novel-T Sarl)/Novel-T - Common/Android/Novel-T.Android.Keystore')
-//            storeFile file('Novel-T.Android.Keystore')
+            storeFile file('D:/Dropbox (Novel-T Sarl)/Novel-T - Common/Android/Novel-T.Android.Keystore')
             storePassword '4.N0V3lT'
         }
     }

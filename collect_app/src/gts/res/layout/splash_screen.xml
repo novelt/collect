@@ -67,5 +67,5 @@
         android:id="@+id/back"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/back_to_gts" />
+        android:text="@string/back_to_gts_tracker" />
 </LinearLayout>
