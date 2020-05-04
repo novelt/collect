@@ -121,7 +121,16 @@ android {
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             buildConfigField 'String', "MAPBOX_ACCESS_TOKEN", '"' + mapboxToken + '"'
         }
+        uat {
+            initWith(release)
+            applicationIdSuffix ".uat"
+        }
+        stage {
+            initWith(release)
+            applicationIdSuffix ".stage"
+        }
         debug {
+            applicationIdSuffix ".debug"
             debuggable(true)
             testCoverageEnabled(true)
             resValue("bool", "FIREBASE_ENABLED", "false")
@@ -265,6 +274,8 @@ dependencies {
     // Real LeakCanary for debug builds only: notifications, analysis, etc
     debugImplementation "com.squareup.leakcanary:leakcanary-android:${rootProject.leakyCanaryVersion}"
     // No-Op version of LeakCanary for release builds: no notifications, no analysis, nothing
+    stageImplementation "com.squareup.leakcanary:leakcanary-android-no-op:${rootProject.leakyCanaryVersion}"
+    uatImplementation "com.squareup.leakcanary:leakcanary-android-no-op:${rootProject.leakyCanaryVersion}"
     releaseImplementation "com.squareup.leakcanary:leakcanary-android-no-op:${rootProject.leakyCanaryVersion}"
     testImplementation "com.squareup.leakcanary:leakcanary-android-no-op:${rootProject.leakyCanaryVersion}"
     androidTestImplementation "com.squareup.leakcanary:leakcanary-android-no-op:${rootProject.leakyCanaryVersion}"

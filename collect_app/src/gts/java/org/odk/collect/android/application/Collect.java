@@ -89,9 +89,20 @@ import static org.odk.collect.android.tasks.sms.SmsSender.SMS_SEND_ACTION;
  */
 public class Collect extends Application {
 
+    static {
+        if (BuildConfig.FLAVOR.equalsIgnoreCase("gts")) {
+            if (BuildConfig.BUILD_TYPE.equalsIgnoreCase("release")) {
+                ODK_ROOT = Environment.getExternalStorageDirectory().getPath() + File.separator + "odk_gts";
+            } else {
+                ODK_ROOT = Environment.getExternalStorageDirectory().getPath() + File.separator + "odk_gts_" + BuildConfig.BUILD_TYPE;
+            }
+        } else {
+            ODK_ROOT = Environment.getExternalStorageDirectory().getPath() + File.separator + "odk";
+        }
+    }
+
     // Storage paths
-    public static final String ODK_ROOT = Environment.getExternalStorageDirectory()
-            + File.separator + "odk_gts";
+    public static final String ODK_ROOT;
     public static final String FORMS_PATH = ODK_ROOT + File.separator + "forms";
     public static final String INSTANCES_PATH = ODK_ROOT + File.separator + "instances";
     public static final String CACHE_PATH = ODK_ROOT + File.separator + ".cache";
