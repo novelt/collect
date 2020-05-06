@@ -41,7 +41,7 @@
             android:name="ch.novelt.gts.odk.collect.android.activities.GtsFormEntryActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="GTS" />
+                <action android:name="${applicationId}" />
 
                 <category android:name="android.intent.category.DEFAULT" />
 
