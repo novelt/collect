@@ -86,8 +86,8 @@ android {
             gts {
                 dimension "dimension"
                 applicationId "ch.novelt.gts.odk.collect.android"
-                versionCode 1
-                versionName "1.0.0"
+                versionCode 3
+                versionName "1.2.0"
                 archivesBaseName = "collect-v$versionCode$versionName"
             }
         }
@@ -126,8 +126,16 @@ android {
             applicationIdSuffix ".uat"
         }
         stage {
-            initWith(release)
+//            initWith(release)
+//            applicationIdSuffix ".stage"
+
             applicationIdSuffix ".stage"
+            debuggable(true)
+            testCoverageEnabled(true)
+            resValue("bool", "FIREBASE_ENABLED", "false")
+            resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
+            buildConfigField 'String', "MAPBOX_ACCESS_TOKEN", '"' + mapboxToken + '"'
+            signingConfig signingConfigs.debug
         }
         debug {
             applicationIdSuffix ".debug"

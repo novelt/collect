@@ -175,7 +175,7 @@ public class SplashScreenActivity extends Activity {
         return b;
     }
 
-    private void startSplashScreen(String path) {
+    protected void startSplashScreen(String path) {
 
         // add items to the splash screen here. makes things less distracting.
         ImageView iv = findViewById(R.id.splash);
