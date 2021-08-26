@@ -164,7 +164,7 @@ pipeline  {
                         // UAT STORE
                         sh '''
                             set -x
-                            uat_apk_file_path=$(find ${OUT_FOLDER}/apk/uat/*.apk -type f)
+                            uat_apk_file_path=$(find ${OUT_FOLDER}/apk/gts/uat/*.apk -type f)
                             uat_apk_filename=$(basename -- "${uat_apk_file_path}")
                             if [ -f ${uat_apk_file_path} ]; then
                               scp -o StrictHostKeyChecking=no ${uat_apk_file_path} "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}:${FDROID_SERVER_UAT_REPO_ROOT}/"
@@ -177,7 +177,7 @@ pipeline  {
 
 //                         sh '''
 //                             set -x
-//                             release_apk_file_path=$(find ${OUT_FOLDER}/apk/release/*.apk -type f)
+//                             release_apk_file_path=$(find ${OUT_FOLDER}/apk/gts/release/*.apk -type f)
 //                             release_apk_filename=$(basename -- "${release_apk_file_path}")
 //                             if [ -f ${release_apk_file_path} ]; then
 //                               scp -o StrictHostKeyChecking=no ${release_apk_file_path} "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}:${FDROID_SERVER_PROD_REPO_ROOT}/"
