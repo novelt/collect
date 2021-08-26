@@ -1,0 +1,3 @@
+*keystore*
+*secrets.properties*
+!secrets.properties.template
