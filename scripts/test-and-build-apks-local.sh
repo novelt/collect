@@ -13,27 +13,33 @@ if [[ "${output_dir}" != '/' ]]; then
     rm -rf "${output_dir}"
 fi
 
-#echo "Run testReleaseUnitTest"
-#docker run \
-#    --env ANDROID_KEYSTORE_KEY_PASSWORD="${ANDROID_KEYSTORE_KEY_PASSWORD}" \
-#    --env ANDROID_KEYSTORE_STORE_PASSWORD="${ANDROID_KEYSTORE_STORE_PASSWORD}" \
-#    "${DOCKER_IMAGES_PREFIX}gts_mobile:${APP_VERSION}" \
-#    bash -c "./gradlew clean && ./gradlew testReleaseUnitTest"
-echo "Retrieving Test Results"
-#DOCKER_SOURCE_CONTAINER=$(docker ps -a --filter="ancestor=${DOCKER_IMAGES_PREFIX}gts_mobile" -q --last 1)
-#docker cp "${DOCKER_SOURCE_CONTAINER}":/usr/src/app/app/build "${output_dir}/"
-#docker rm "${DOCKER_SOURCE_CONTAINER}"
+#testGtsDebugUnitTest - Run unit tests for the gtsDebug build.
+#testGtsOdkCollectReleaseUnitTest - Run unit tests for the gtsOdkCollectRelease build.
+#testGtsReleaseUnitTest - Run unit tests for the gtsRelease build.
+#testGtsStageUnitTest - Run unit tests for the gtsStage build.
+#testGtsUatUnitTest - Run unit tests for the gtsUat build.
 
-#echo "Run testUatUnitTest"
-#docker run \
-#    --env ANDROID_KEYSTORE_KEY_PASSWORD="${ANDROID_KEYSTORE_KEY_PASSWORD}" \
-#    --env ANDROID_KEYSTORE_STORE_PASSWORD="${ANDROID_KEYSTORE_STORE_PASSWORD}" \
-#    "${DOCKER_IMAGES_PREFIX}gts_mobile:${APP_VERSION}" \
-#    bash -c "./gradlew clean && ./gradlew testUatUnitTest"
+#echo "Run testGtsReleaseUnitTest"
+docker run \
+    --env ANDROID_KEYSTORE_KEY_PASSWORD="${ANDROID_KEYSTORE_KEY_PASSWORD}" \
+    --env ANDROID_KEYSTORE_STORE_PASSWORD="${ANDROID_KEYSTORE_STORE_PASSWORD}" \
+    "${DOCKER_IMAGES_PREFIX}gts_collect:${APP_VERSION}" \
+    bash -c "./gradlew clean && ./gradlew testGtsReleaseUnitTest --info --stacktrace"
 echo "Retrieving Test Results"
-#DOCKER_SOURCE_CONTAINER=$(docker ps -a --filter="ancestor=${DOCKER_IMAGES_PREFIX}gts_mobile" -q --last 1)
-#docker cp "${DOCKER_SOURCE_CONTAINER}":/usr/src/app/app/build "${output_dir}/"
-#docker rm "${DOCKER_SOURCE_CONTAINER}"
+DOCKER_SOURCE_CONTAINER=$(docker ps -a --filter="ancestor=${DOCKER_IMAGES_PREFIX}gts_collect" -q --last 1)
+docker cp "${DOCKER_SOURCE_CONTAINER}":/usr/src/app/app/build "${output_dir}/"
+docker rm "${DOCKER_SOURCE_CONTAINER}"
+
+#echo "Run testGtsUatUnitTest"
+docker run \
+    --env ANDROID_KEYSTORE_KEY_PASSWORD="${ANDROID_KEYSTORE_KEY_PASSWORD}" \
+    --env ANDROID_KEYSTORE_STORE_PASSWORD="${ANDROID_KEYSTORE_STORE_PASSWORD}" \
+    "${DOCKER_IMAGES_PREFIX}gts_collect:${APP_VERSION}" \
+    bash -c "./gradlew clean && ./gradlew testGtsUatUnitTest --info --stacktrace"
+echo "Retrieving Test Results"
+DOCKER_SOURCE_CONTAINER=$(docker ps -a --filter="ancestor=${DOCKER_IMAGES_PREFIX}gts_collect" -q --last 1)
+docker cp "${DOCKER_SOURCE_CONTAINER}":/usr/src/app/app/build "${output_dir}/"
+docker rm "${DOCKER_SOURCE_CONTAINER}"
 
 echo "Prepare local output"
 rm -rf "${output_dir}"
@@ -43,12 +49,12 @@ echo "Building APK's"
 docker run \
     --env ANDROID_KEYSTORE_KEY_PASSWORD="${ANDROID_KEYSTORE_KEY_PASSWORD}" \
     --env ANDROID_KEYSTORE_STORE_PASSWORD="${ANDROID_KEYSTORE_STORE_PASSWORD}" \
-    "${DOCKER_IMAGES_PREFIX}gts_mobile:${APP_VERSION}" \
+    "${DOCKER_IMAGES_PREFIX}gts_collect:${APP_VERSION}" \
     bash -c "./gradlew clean && ./gradlew assembleGtsUat assembleGtsRelease"
 
 echo "Retrieving APKS"
 
-DOCKER_SOURCE_CONTAINER=$(docker ps -a --filter="ancestor=${DOCKER_IMAGES_PREFIX}gts_mobile" -q --last 1)
+DOCKER_SOURCE_CONTAINER=$(docker ps -a --filter="ancestor=${DOCKER_IMAGES_PREFIX}gts_collect" -q --last 1)
 docker cp "${DOCKER_SOURCE_CONTAINER}":/usr/src/app/app/build "${output_dir}/"
 docker rm "${DOCKER_SOURCE_CONTAINER}"
 

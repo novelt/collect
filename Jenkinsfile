@@ -203,6 +203,7 @@ pipeline  {
                 docker stop $(docker ps --filter=name="${DOCKER_IMAGES_PREFIX}" -q) > /dev/null 2>&1 || true
                 docker rm $(docker ps --filter=name="${DOCKER_IMAGES_PREFIX}" -qa) > /dev/null 2>&1 || true
                 docker image rm -f $(docker image list --filter=reference="${DOCKER_IMAGES_PREFIX}*" -q) > /dev/null 2>&1 || true
+                rm --rf "${OUT_FOLDER}"
             '''
         }
     }
