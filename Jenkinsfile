@@ -136,7 +136,7 @@ pipeline  {
 
                     sh '''
                         DOCKER_SOURCE_CONTAINER=$(docker ps -qa --filter="ancestor=${DOCKER_IMAGES_PREFIX}gts_collect:${APP_VERSION}" --last 1)
-                        docker cp "${DOCKER_SOURCE_CONTAINER}:/usr/src/app/app/build/outputs/apk" "${OUT_FOLDER}/"
+                        docker cp "${DOCKER_SOURCE_CONTAINER}:/usr/src/app/collect_app/build/outputs/apk" "${OUT_FOLDER}/"
                         docker rm $(docker ps --filter=name=${DOCKER_IMAGES_PREFIX} -qa) > /dev/null 2>&1 || true
                     '''
                 }
