@@ -60,6 +60,8 @@ pipeline  {
             steps {
                 wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
                     sh '''
+                        rm -f ./collect_app/novelt-android.keystore
+                        rm -f ./collect_app/secrets.properties
                         cp "${NOVELT_KEYSTORE}" ./collect_app/novelt-android.keystore
                         cp "${SECRETS_PROPERTIES}" ./collect_app/secrets.properties
                         scripts/docker/build.sh
