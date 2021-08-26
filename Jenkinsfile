@@ -21,7 +21,7 @@ pipeline  {
         FDROID_SERVER_UAT_ROOT = "${env.FDROID_SERVER_FDROID_ROOT}/gts-uat"
         FDROID_SERVER_UAT_REPO_ROOT = "${env.FDROID_SERVER_UAT_ROOT}/repo"
 
-        FDROID_PUBLISH_BRANCH = 'master'
+        FDROID_PUBLISH_BRANCH = 'mb/android-tests-2'
     }
 
     stages {
@@ -54,7 +54,7 @@ pipeline  {
         }
         stage('Build images') {
             environment {
-                NOVELT_KEYSTORE = credentials('COLLECT_NOVELT_ANDROID_KEYSTORE')
+                NOVELT_KEYSTORE = credentials('NOVELT_ANDROID_KEYSTORE')
                 SECRETS_PROPERTIES = credentials('COLLECT_SECRETS_PROPERTIES')
             }
             steps {
@@ -181,7 +181,7 @@ pipeline  {
                             release_apk_filename=$(basename -- "${release_apk_file_path}")
                             if [ -f ${release_apk_file_path} ]; then
                               scp -o StrictHostKeyChecking=no ${release_apk_file_path} "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}:${FDROID_SERVER_PROD_REPO_ROOT}/"
-                              ssh -o StrictHostKeyChecking=no "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}" ln -sf ${FDROID_SERVER_PROD_ROOT}/repo/${release_apk_filename} ${FDROID_SERVER_PROD_ROOT}/GTSCollect.apk
+                              ssh -o StrictHostKeyChecking=no "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}" ln -sf ${FDROID_SERVER_PROD_ROOT}/repo/${release_apk_filename} ${FDROID_SERVER_PROD_ROOT}/GTSCollectTEST.apk
                             fi
                         '''
                     }
