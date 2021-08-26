@@ -95,10 +95,12 @@ android {
 
     signingConfigs {
         novelt {
-            keyAlias 'vts_tracker'
-            keyPassword '4.N0V3lT.tracker'
-            storeFile file('D:/Dropbox (Novel-T Sarl)/Novel-T - Common/Android/Novel-T.Android.Keystore')
-            storePassword '4.N0V3lT'
+            if (secrets.getProperty('RELEASE_STORE_FILE')) {
+                storeFile file(secrets.getProperty('RELEASE_STORE_FILE'))
+                storePassword secrets.getProperty('RELEASE_STORE_PASSWORD')
+                keyAlias secrets.getProperty('RELEASE_KEY_ALIAS')
+                keyPassword secrets.getProperty('RELEASE_KEY_PASSWORD')
+            }
         }
     }
 
