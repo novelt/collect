@@ -21,7 +21,7 @@ pipeline  {
         FDROID_SERVER_UAT_ROOT = "${env.FDROID_SERVER_FDROID_ROOT}/gts-uat"
         FDROID_SERVER_UAT_REPO_ROOT = "${env.FDROID_SERVER_UAT_ROOT}/repo"
 
-        FDROID_PUBLISH_BRANCH = 'master'
+        FDROID_PUBLISH_BRANCH = 'novelt/gts'
     }
 
     stages {
