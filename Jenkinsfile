@@ -168,22 +168,22 @@ pipeline  {
                             uat_apk_filename=$(basename -- "${uat_apk_file_path}")
                             if [ -f ${uat_apk_file_path} ]; then
                               scp -o StrictHostKeyChecking=no ${uat_apk_file_path} "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}:${FDROID_SERVER_UAT_REPO_ROOT}/"
-                              ssh -o StrictHostKeyChecking=no "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}" ln -sf ${FDROID_SERVER_UAT_ROOT}/repo/${uat_apk_filename} ${FDROID_SERVER_UAT_ROOT}/GTSTracker.apk
+                              ssh -o StrictHostKeyChecking=no "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}" ln -sf ${FDROID_SERVER_UAT_ROOT}/repo/${uat_apk_filename} ${FDROID_SERVER_UAT_ROOT}/GTSCollect.apk
                             fi
                             ssh -o StrictHostKeyChecking=no "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}" "cd ${FDROID_SERVER_UAT_ROOT} && fdroid update"
                         '''
 
                         // PROD STORE
 
-//                         sh '''
-//                             set -x
-//                             release_apk_file_path=$(find ${OUT_FOLDER}/apk/gts/release/*.apk -type f)
-//                             release_apk_filename=$(basename -- "${release_apk_file_path}")
-//                             if [ -f ${release_apk_file_path} ]; then
-//                               scp -o StrictHostKeyChecking=no ${release_apk_file_path} "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}:${FDROID_SERVER_PROD_REPO_ROOT}/"
-//                               ssh -o StrictHostKeyChecking=no "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}" ln -sf ${FDROID_SERVER_PROD_ROOT}/repo/${release_apk_filename} ${FDROID_SERVER_PROD_ROOT}/GTSTrackerTEST.apk
-//                             fi
-//                         '''
+                        sh '''
+                            set -x
+                            release_apk_file_path=$(find ${OUT_FOLDER}/apk/gts/release/*.apk -type f)
+                            release_apk_filename=$(basename -- "${release_apk_file_path}")
+                            if [ -f ${release_apk_file_path} ]; then
+                              scp -o StrictHostKeyChecking=no ${release_apk_file_path} "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}:${FDROID_SERVER_PROD_REPO_ROOT}/"
+                              ssh -o StrictHostKeyChecking=no "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}" ln -sf ${FDROID_SERVER_PROD_ROOT}/repo/${release_apk_filename} ${FDROID_SERVER_PROD_ROOT}/GTSCollectTEST.apk
+                            fi
+                        '''
                     }
                 }
             }
