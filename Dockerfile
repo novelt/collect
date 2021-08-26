@@ -6,6 +6,6 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-COPY ./novelt-android.keystore ./collect_app/
+#COPY ./novelt-android.keystore ./collect_app/
 
 RUN bash -c 'cd /usr/src/app && ./gradlew'

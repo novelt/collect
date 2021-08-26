@@ -54,13 +54,13 @@ pipeline  {
         }
         stage('Build images') {
             environment {
-                NOVELT_KEYSTORE = credentials('NOVELT_ANDROID_KEYSTORE')
-                SECRETS_PROPERTIES = credentials('COLLECT_SECRETS.PROPERTIES')
+                NOVELT_KEYSTORE = credentials('COLLECT_NOVELT_ANDROID_KEYSTORE')
+                SECRETS_PROPERTIES = credentials('COLLECT_SECRETS_PROPERTIES')
             }
             steps {
                 wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
                     sh '''
-                        cp "${NOVELT_KEYSTORE}" ./novelt-android.keystore
+                        cp "${NOVELT_KEYSTORE}" ./collect_app/novelt-android.keystore
                         cp "${SECRETS_PROPERTIES}" ./collect_app/secrets.properties
                         scripts/docker/build.sh
                     '''
