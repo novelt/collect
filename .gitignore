@@ -38,6 +38,7 @@ captures/
 collect_app/.classpath
 collect_app/.project
 collect_app/.settings/
+collect_app/gts
 
 # Submodules
 javarosa/

@@ -43,3 +43,10 @@ scripts/test-and-build-apks-local.sh
 - Build the image (see above)
 - docker run -it "${DOCKER_IMAGES_PREFIX}gts_mobile:${APP_VERSION}" bash
 - now you can execute commands like `./gradlew testGtsReleaseUnitTest` (mind the `./`)
+
+### Override some settings
+- If you need to build an APK with some specific settings you can do it this way :
+- Update classes GtsFormEntryActivity and GtsSplashScreenActivity : (the example below force the navigation setting to 'swipe_buttons')
+```
+GeneralSharedPreferences.getInstance().save(GeneralKeys.KEY_NAVIGATION, "swipe_buttons");
+```
