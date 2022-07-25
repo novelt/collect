@@ -41,7 +41,8 @@ scripts/test-and-build-apks-local.sh
 
 ### Get a shell in the container
 - Build the image (see above)
-- docker run -it "${DOCKER_IMAGES_PREFIX}gts_mobile:${APP_VERSION}" bash
+
+- `docker run -it "${DOCKER_IMAGES_PREFIX}gts_mobile:${APP_VERSION}" bash`
 - now you can execute commands like `./gradlew testGtsReleaseUnitTest` (mind the `./`)
 
 ### Override some settings
