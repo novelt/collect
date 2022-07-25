@@ -1,6 +1,7 @@
 package ch.novelt.gts.odk.collect.android.activities;
 
 import android.os.Bundle;
+import android.view.View;
 
 import org.odk.collect.android.R;
 import org.odk.collect.android.activities.SplashScreenActivity;
@@ -20,7 +21,13 @@ public class GtsSplashScreenActivity extends SplashScreenActivity {
     protected void startSplashScreen(String path) {
         super.startSplashScreen(path);
 
-        findViewById(R.id.back).setOnClickListener(ev -> finish());
+        findViewById(R.id.back).setOnClickListener(new View.OnClickListener() {
+           @Override
+           public void onClick(View v) {
+               onBackPressed();
+               finish();
+           }
+        });
 
         AdminSharedPreferences.getInstance().save(AdminKeys.KEY_SAVE_MID, false);
         AdminSharedPreferences.getInstance().save(AdminKeys.KEY_ACCESS_SETTINGS, false);
