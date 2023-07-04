@@ -134,24 +134,28 @@ android {
             resValue("bool", "CRASHLYTICS_ENABLED", "false")
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             buildConfigField 'String', "MAPBOX_ACCESS_TOKEN", '"' + mapboxToken + '"'
+            FirebasePerformance {
+                instrumentationEnabled false
+            }
+
+            // TO DEBUG
+            // signingConfig signingConfigs.debug
+            // debuggable(true)
         }
         stage {
-//            initWith(release)
-//            applicationIdSuffix ".stage"
-
+            initWith(release)
             applicationIdSuffix ".stage"
-            debuggable(true)
-            testCoverageEnabled(true)
+            signingConfig signingConfigs.debug
             resValue("bool", "CRASHLYTICS_ENABLED", "false")
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             buildConfigField 'String', "MAPBOX_ACCESS_TOKEN", '"' + mapboxToken + '"'
-            signingConfig signingConfigs.debug
+
             FirebasePerformance {
-                // Set this flag to 'false' to disable @AddTrace annotation processing and
-                // automatic HTTP/S network request monitoring
-                // for a specific build variant at compile time.
                 instrumentationEnabled false
             }
+
+            debuggable(true)
+            testCoverageEnabled(true)
         }
         debug {
             applicationIdSuffix ".debug"
@@ -161,6 +165,9 @@ android {
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             buildConfigField 'String', "MAPBOX_ACCESS_TOKEN", '"' + mapboxToken + '"'
             FirebasePerformance {
+                // Set this flag to 'false' to disable @AddTrace annotation processing and
+                // automatic HTTP/S network request monitoring
+                // for a specific build variant at compile time.
                 instrumentationEnabled false
             }
         }
