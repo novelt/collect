@@ -1,12 +1,24 @@
 package org.odk.collect.android.storage;
 
 import android.os.Environment;
-
+import org.odk.collect.android.BuildConfig;
 import org.odk.collect.android.application.Collect;
 
 import java.io.File;
 
 public class StoragePathProvider {
+    @SuppressWarnings("ConstantConditions")
+    public static String getOdkRoot() {
+        if (BuildConfig.FLAVOR.equalsIgnoreCase("gts")) {
+            if (BuildConfig.BUILD_TYPE.equalsIgnoreCase("release")) {
+                return "odk_gts";
+            } else {
+                return "odk_gts_" + BuildConfig.BUILD_TYPE;
+            }
+        } else {
+            return "odk";
+        }
+    }
     private StorageStateProvider storageStateProvider;
 
     public StoragePathProvider() {
@@ -52,7 +64,7 @@ public class StoragePathProvider {
     }
 
     public String getUnscopedStorageRootDirPath() {
-        return Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + "odk";
+        return Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + getOdkRoot();
     }
 
     public String getUnscopedStorageDirPath(StorageSubdirectory subdirectory) {

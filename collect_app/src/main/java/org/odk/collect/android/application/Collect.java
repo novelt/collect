@@ -22,7 +22,6 @@ import android.content.res.Configuration;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -86,26 +85,6 @@ import static org.odk.collect.android.tasks.sms.SmsSender.SMS_SEND_ACTION;
  */
 public class Collect extends Application {
 
-    static {
-        if (BuildConfig.FLAVOR.equalsIgnoreCase("gts")) {
-            if (BuildConfig.BUILD_TYPE.equalsIgnoreCase("release")) {
-                ODK_ROOT = Environment.getExternalStorageDirectory().getPath() + File.separator + "odk_gts";
-            } else {
-                ODK_ROOT = Environment.getExternalStorageDirectory().getPath() + File.separator + "odk_gts_" + BuildConfig.BUILD_TYPE;
-            }
-        } else {
-            ODK_ROOT = Environment.getExternalStorageDirectory().getPath() + File.separator + "odk";
-        }
-    }
-
-    // Storage paths
-    public static final String ODK_ROOT;
-    public static final String FORMS_PATH = ODK_ROOT + File.separator + "forms";
-    public static final String INSTANCES_PATH = ODK_ROOT + File.separator + "instances";
-    public static final String CACHE_PATH = ODK_ROOT + File.separator + ".cache";
-    public static final String METADATA_PATH = ODK_ROOT + File.separator + "metadata";
-    public static final String TMPFILE_PATH = CACHE_PATH + File.separator + "tmp.jpg";
-    public static final String TMPDRAWFILE_PATH = CACHE_PATH + File.separator + "tmpDraw.jpg";
     public static final String DEFAULT_FONTSIZE = "21";
     public static final int DEFAULT_FONTSIZE_INT = 21;
 
