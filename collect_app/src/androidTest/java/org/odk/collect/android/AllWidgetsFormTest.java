@@ -2,6 +2,7 @@ package org.odk.collect.android;
 
 import android.Manifest;
 import android.app.Instrumentation.ActivityResult;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.view.View;
@@ -12,26 +13,21 @@ import androidx.test.espresso.UiController;
 import androidx.test.espresso.ViewAction;
 import androidx.test.espresso.ViewInteraction;
 import androidx.test.espresso.matcher.ViewMatchers;
-import androidx.test.rule.ActivityTestRule;
 import androidx.test.rule.GrantPermissionRule;
 
 import net.bytebuddy.utility.RandomString;
 
 import org.hamcrest.Matcher;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
-import org.odk.collect.android.activities.FormEntryActivity;
+import org.odk.collect.android.injection.config.AppDependencyModule;
 import org.odk.collect.android.support.CopyFormRule;
 import org.odk.collect.android.support.ResetStateRule;
-import org.odk.collect.android.test.FormLoadingUtils;
+import org.odk.collect.android.test.FormActivityTestRule;
 import org.odk.collect.android.utilities.ActivityAvailability;
 
 import java.text.DecimalFormat;
@@ -66,6 +62,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.odk.collect.android.test.CustomMatchers.withProgress;
 import static org.odk.collect.android.test.FormLoadingUtils.ALL_WIDGETS_FORM;
@@ -78,17 +75,15 @@ import static org.odk.collect.android.test.FormLoadingUtils.ALL_WIDGETS_FORM;
  * creation.
  */
 public class AllWidgetsFormTest {
+
     private final Random random = new Random();
     private final ActivityResult okResult = new ActivityResult(RESULT_OK, new Intent());
+    private final ActivityAvailability activityAvailability = mock(ActivityAvailability.class);
 
     @ClassRule
     public static final LocaleTestRule LOCALE_TEST_RULE = new LocaleTestRule();
 
-    @Rule
-    public ActivityTestRule<FormEntryActivity> activityTestRule = FormLoadingUtils.getFormActivityTestRuleFor(ALL_WIDGETS_FORM);
-
-    @Rule
-    public MockitoRule rule = MockitoJUnit.rule();
+    public AllWidgetsFormTestRule activityTestRule = new AllWidgetsFormTestRule();
 
     @Rule
     public RuleChain copyFormChain = RuleChain
@@ -96,21 +91,18 @@ public class AllWidgetsFormTest {
                     Manifest.permission.READ_EXTERNAL_STORAGE,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE)
             )
-            .around(new ResetStateRule())
-            .around(new CopyFormRule(ALL_WIDGETS_FORM));
-
-    @Mock
-    private ActivityAvailability activityAvailability;
+            .around(new ResetStateRule(new AppDependencyModule() {
+                @Override
+                public ActivityAvailability providesActivityAvailability(Context context) {
+                    return activityAvailability;
+                }
+            }))
+            .around(new CopyFormRule(ALL_WIDGETS_FORM))
+            .around(activityTestRule);
 
     @BeforeClass
     public static void beforeAll() {
         Screengrab.setDefaultScreenshotStrategy(new UiAutomatorScreenshotStrategy());
-    }
-
-    @Before
-    public void prepareDependencies() {
-        FormEntryActivity activity = activityTestRule.getActivity();
-        activity.setActivityAvailability(activityAvailability);
     }
     //endregion
 
@@ -1049,4 +1041,11 @@ public class AllWidgetsFormTest {
      }
 
     //endregion
+
+    private static class AllWidgetsFormTestRule extends FormActivityTestRule {
+
+        AllWidgetsFormTestRule() {
+            super(ALL_WIDGETS_FORM);
+        }
+    }
 }

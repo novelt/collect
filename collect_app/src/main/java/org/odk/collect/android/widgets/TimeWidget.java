@@ -23,7 +23,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.text.format.DateFormat;
 import android.util.AttributeSet;
-import android.view.Gravity;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -32,9 +31,10 @@ import android.widget.TimePicker;
 
 import org.javarosa.core.model.data.IAnswerData;
 import org.javarosa.core.model.data.TimeData;
-import org.javarosa.form.api.FormEntryPrompt;
 import org.joda.time.DateTime;
 import org.odk.collect.android.R;
+import org.odk.collect.android.formentry.questions.QuestionDetails;
+import org.odk.collect.android.formentry.questions.WidgetViewUtils;
 import org.odk.collect.android.widgets.interfaces.ButtonWidget;
 
 import java.lang.reflect.Constructor;
@@ -42,6 +42,9 @@ import java.lang.reflect.Field;
 import java.util.Date;
 
 import timber.log.Timber;
+
+import static org.odk.collect.android.formentry.questions.WidgetViewUtils.createAnswerTextView;
+import static org.odk.collect.android.formentry.questions.WidgetViewUtils.createSimpleButton;
 
 /**
  * Displays a TimePicker widget.
@@ -52,21 +55,19 @@ import timber.log.Timber;
 public class TimeWidget extends QuestionWidget implements ButtonWidget, TimePickerDialog.OnTimeSetListener {
     private TimePickerDialog timePickerDialog;
 
-    private Button timeButton;
-    private final TextView timeTextView;
+    Button timeButton;
+    final TextView timeTextView;
 
     private int hourOfDay;
     private int minuteOfHour;
 
     private boolean nullAnswer;
 
-    public TimeWidget(Context context, final FormEntryPrompt prompt) {
+    public TimeWidget(Context context, final QuestionDetails prompt) {
         super(context, prompt);
 
-        setGravity(Gravity.START);
-
         createTimeButton();
-        timeTextView = getAnswerTextView();
+        timeTextView = createAnswerTextView(getContext(), getAnswerFontSize());
         createTimePickerDialog();
         addViews();
     }
@@ -107,7 +108,7 @@ public class TimeWidget extends QuestionWidget implements ButtonWidget, TimePick
     }
 
     private void createTimeButton() {
-        timeButton = getSimpleButton(getContext().getString(R.string.select_time));
+        timeButton = createSimpleButton(getContext(), getFormEntryPrompt().isReadOnly(), getContext().getString(R.string.select_time), getAnswerFontSize(), this);
     }
 
     private void addViews() {
@@ -115,7 +116,7 @@ public class TimeWidget extends QuestionWidget implements ButtonWidget, TimePick
         linearLayout.setOrientation(LinearLayout.VERTICAL);
         linearLayout.addView(timeButton);
         linearLayout.addView(timeTextView);
-        addAnswerView(linearLayout);
+        addAnswerView(linearLayout, WidgetViewUtils.getStandardMargin(getContext()));
     }
 
     public void setTimeLabel() {
@@ -218,8 +219,7 @@ public class TimeWidget extends QuestionWidget implements ButtonWidget, TimePick
          */
         @SuppressWarnings("deprecation")
         private void fixSpinner(Context context, int hourOfDay, int minute, boolean is24HourView) {
-            // android:timePickerMode spinner and clock began in Lollipop
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.N) {
                 try {
                     // Get the theme's android:timePickerMode
                     final int MODE_SPINNER = 2;
@@ -251,13 +251,7 @@ public class TimeWidget extends QuestionWidget implements ButtonWidget, TimePick
                         Object delegate = delegateField.get(timePicker);
 
                         Class<?> spinnerDelegateClass;
-                        if (Build.VERSION.SDK_INT != Build.VERSION_CODES.LOLLIPOP) {
-                            spinnerDelegateClass = Class.forName("android.widget.TimePickerSpinnerDelegate");
-                        } else {
-                            // TimePickerSpinnerDelegate was initially misnamed in API 21!
-                            spinnerDelegateClass = Class.forName("android.widget.TimePickerClockDelegate");
-                        }
-
+                        spinnerDelegateClass = Class.forName("android.widget.TimePickerSpinnerDelegate");
                         // In 7.0 Nougat for some reason the timePickerMode is ignored and the
                         // delegate is TimePickerClockDelegate
                         if (delegate.getClass() != spinnerDelegateClass) {

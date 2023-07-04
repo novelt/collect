@@ -32,6 +32,8 @@ import org.odk.collect.android.R;
 import org.odk.collect.android.application.Collect;
 import org.odk.collect.android.database.helpers.InstancesDatabaseHelper;
 import org.odk.collect.android.provider.InstanceProviderAPI.InstanceColumns;
+import org.odk.collect.android.storage.StorageInitializer;
+import org.odk.collect.android.storage.StoragePathProvider;
 import org.odk.collect.android.utilities.MediaUtils;
 
 import java.io.File;
@@ -54,20 +56,28 @@ public class InstanceProvider extends ContentProvider {
     private static final UriMatcher URI_MATCHER;
 
     private static InstancesDatabaseHelper dbHelper;
-    
+
     private synchronized InstancesDatabaseHelper getDbHelper() {
         // wrapper to test and reset/set the dbHelper based upon the attachment state of the device.
         try {
-            Collect.createODKDirs();
+            new StorageInitializer().createOdkDirsOnStorage();
         } catch (RuntimeException e) {
             return null;
         }
 
-        if (dbHelper == null) {
-            dbHelper = new InstancesDatabaseHelper();
+        boolean databaseNeedsUpgrade = InstancesDatabaseHelper.databaseNeedsUpgrade();
+        if (dbHelper == null || (databaseNeedsUpgrade && !InstancesDatabaseHelper.isDatabaseBeingMigrated())) {
+            if (databaseNeedsUpgrade) {
+                InstancesDatabaseHelper.databaseMigrationStarted();
+            }
+            recreateDatabaseHelper();
         }
 
         return dbHelper;
+    }
+
+    public static void recreateDatabaseHelper() {
+        dbHelper = new InstancesDatabaseHelper();
     }
 
     @Override
@@ -255,8 +265,8 @@ public class InstanceProvider extends ContentProvider {
                         if (del != null && del.getCount() > 0) {
                             del.moveToFirst();
                             do {
-                                String instanceFile = del.getString(
-                                        del.getColumnIndex(InstanceColumns.INSTANCE_FILE_PATH));
+                                String instanceFile = new StoragePathProvider().getAbsoluteInstanceFilePath(del.getString(
+                                        del.getColumnIndex(InstanceColumns.INSTANCE_FILE_PATH)));
                                 File instanceDir = (new File(instanceFile)).getParentFile();
                                 deleteAllFilesInDirectory(instanceDir);
                             } while (del.moveToNext());
@@ -280,8 +290,8 @@ public class InstanceProvider extends ContentProvider {
                             c.moveToFirst();
                             status = c.getString(c.getColumnIndex(InstanceColumns.STATUS));
                             do {
-                                String instanceFile = c.getString(
-                                        c.getColumnIndex(InstanceColumns.INSTANCE_FILE_PATH));
+                                String instanceFile = new StoragePathProvider().getAbsoluteInstanceFilePath(c.getString(
+                                        c.getColumnIndex(InstanceColumns.INSTANCE_FILE_PATH)));
                                 File instanceDir = (new File(instanceFile)).getParentFile();
                                 deleteAllFilesInDirectory(instanceDir);
                             } while (c.moveToNext());
@@ -292,11 +302,16 @@ public class InstanceProvider extends ContentProvider {
                         }
                     }
 
-                    //We are going to update the status, if the form is submitted
-                    //We will not delete the record in table but we will delete the file
+                    // Keep sent instance database rows but delete corresponding files
                     if (status != null && status.equals(InstanceProviderAPI.STATUS_SUBMITTED)) {
                         ContentValues cv = new ContentValues();
                         cv.put(InstanceColumns.DELETED_DATE, System.currentTimeMillis());
+
+                        // Geometry fields represent data inside the form which can be very
+                        // sensitive so they are removed on delete.
+                        cv.put(InstanceColumns.GEOMETRY_TYPE, (String) null);
+                        cv.put(InstanceColumns.GEOMETRY, (String) null);
+
                         count = Collect.getInstance().getContentResolver().update(uri, cv, null, null);
                     } else {
                         String[] newWhereArgs;
@@ -404,5 +419,7 @@ public class InstanceProvider extends ContentProvider {
         sInstancesProjectionMap.put(InstanceColumns.LAST_STATUS_CHANGE_DATE,
                 InstanceColumns.LAST_STATUS_CHANGE_DATE);
         sInstancesProjectionMap.put(InstanceColumns.DELETED_DATE, InstanceColumns.DELETED_DATE);
+        sInstancesProjectionMap.put(InstanceColumns.GEOMETRY, InstanceColumns.GEOMETRY);
+        sInstancesProjectionMap.put(InstanceColumns.GEOMETRY_TYPE, InstanceColumns.GEOMETRY_TYPE);
     }
 }

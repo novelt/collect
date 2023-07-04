@@ -31,7 +31,9 @@ ODK Collect renders forms that are compliant with the [ODK XForms standard](http
 * ODK developer Slack archive: [https://opendatakit.slackarchive.io](https://opendatakit.slackarchive.io) 
 
 ## Release cycle
-New versions of ODK Collect are generally released on the last Sunday of a month. We freeze commits to the master branch on the preceding Wednesday (except for bug fixes). Releases can be requested by any community member and generally happen every 2 months. [@yanokwa](https://github.com/yanokwa) pushes the releases to the Play Store.
+Releases can be requested by any community member and generally happen every 2 months.
+
+Before release we perform a "code freeze" (we stop merging pull requests) and then carry out regression testing. If any problems are found, the release is blocked until we can merge fixes. Once the process is complete, [@yanokwa](https://github.com/yanokwa) pushes the releases to the Play Store. The code is "unfrozen" after a short grace period to make hot fixing easier.
 
 At the beginning of each release cycle, [@grzesiek2010](https://github.com/grzesiek2010) updates all dependencies that have compatible upgrades available and ensures that the build targets the latest SDK.
 
@@ -52,7 +54,9 @@ We try to make sure that all issues in the issue tracker are as close to fully s
 
     If you prefer not to use the command line, you can use Android Studio to create a new project from version control using `https://github.com/YOUR-GITHUB-USERNAME/collect`.
 
-1. Open the project in the folder of your clone from Android Studio. To run the project, click on the green arrow at the top of the screen.
+1. Use Android Studio to import the project from its Gradle settings. To run the project, click on the green arrow at the top of the screen.
+
+1. Windows developers: continue configuring Android Studio with the steps in this document: [Developing ODK Collect on Windows](docs/WindowsDevSetup.md).
 
 1. Make sure you can run unit tests by running everything under `collect_app/src/test/java` in Android Studio or on the command line:
 
@@ -89,6 +93,7 @@ Certain functions in ODK Collect depend on cloud services that require API keys 
   - Follow [these instructions to generate a signing certificate fingerprint and register the application with the Google API Console](https://developers.google.com/drive/android/auth#generate_the_signing_certificate_fingerprint_and_register_your_application).
   - [Enable the Google Drive API](https://console.developers.google.com/apis/api/drive.googleapis.com).
   - [Enable the Google Sheets API](https://console.developers.google.com/apis/api/sheets.googleapis.com).
+  - Copy the oauth clientID from [the developer console](https://console.developers.google.com/apis/credentials) into the `client_id` of `collect_app/google-services.json` file
 
 **Google Maps API**: When the "Google Maps SDK" option is selected in the "User interface" settings, ODK Collect uses the Google Maps API for displaying maps in the geospatial widgets (GeoPoint, GeoTrace, and GeoShape).  To enable this API:
   - [Get a Google Maps API key](https://developers.google.com/maps/documentation/android-api/signup).  Note that this requires a credit card number, though the card will not be charged immediately; some free API usage is permitted.  You should carefully read the terms before providing a credit card number.
@@ -145,7 +150,7 @@ Any and all contributions to the project are welcome. ODK Collect is used across
 
 Issues tagged as [good first issue](https://github.com/opendatakit/collect/labels/good%20first%20issue) should be a good place to start. There are also currently many issues tagged as [needs reproduction](https://github.com/opendatakit/collect/labels/needs%20reproduction) which need someone to try to reproduce them with the current version of ODK Collect and comment on the issue with their findings.
 
-If you're ready to contribute code, see [the contribution guide](CONTRIBUTING.md).
+If you're ready to contribute code, see [the contribution guide](docs/CONTRIBUTING.md).
 
 ## Contributing translations
 If you know a language other than English, consider contributing translations through [Transifex](https://www.transifex.com/opendatakit/collect/). 
@@ -154,16 +159,14 @@ Translations are updated right before the first beta for a release and before th
 
 ## Contributing testing
 All pull requests are verified on the following devices (ordered by Android version):
-* [Infinix Race Bolt Q X451](http://bestmobs.com/infinix-race-bolt-q-x451) - Android 4.2.1
-* [Samsung Galaxy J1 SM-J100H](http://www.gsmarena.com/samsung_galaxy_j1-6907.php) - Android 4.4.4
 * [Huawei Y560-L01](http://www.gsmarena.com/huawei_y560-7829.php) - Android 5.1.1
 * [Sony Xperia Z3 D6603](http://www.gsmarena.com/sony_xperia_z3-6539.php) - Android 6.0.1
 * [Samsung Galaxy S7 SM-G930F](https://www.gsmarena.com/samsung_galaxy_s7-7821.php) - Android 7.0.0
 * [LG Nexus 5X](https://www.gsmarena.com/lg_nexus_5x-7556.php) - Android 8.1
 * [Xiaomi Redmi 7](https://www.gsmarena.com/xiaomi_redmi_7-9498.php) - Android 9.0
+* [Google Pixel 3a](https://www.gsmarena.com/google_pixel_3a-9408.php) - Android 10.0
 
 Our regular code contributors use these devices (ordered by Android version): 
-* [Alcatel One Touch 5020D](https://www.gsmarena.com/alcatel_one_touch_m_pop-5242.php) - Android 4.1.1
 * [Xiaomi Redmi Note 4](https://www.gsmarena.com/xiaomi_redmi_note_4-8531.php) - Android 7.0
 * [Samsung Galaxy S4 GT-I9506](http://www.gsmarena.com/samsung_i9506_galaxy_s4-5542.php) - Android 5.0.1
 * [Samsung Galaxy Tab SM-T285](http://www.gsmarena.com/samsung_galaxy_tab_a_7_0_(2016)-7880.php) - Android 5.1.1
@@ -181,7 +184,12 @@ Per-commit debug builds can be found on [CircleCI](https://circleci.com/gh/opend
 Current and previous production builds can be found on the [ODK website](https://opendatakit.org/downloads/download-info/odk-collect-apk).
 
 ## Creating signed releases for Google Play Store
-Project maintainers have the keys to upload signed releases to the Play Store. 
+Maintainers keep a folder with a clean checkout of the code and use [jenv.be](https://www.jenv.be) in that folder to ensure compilation with Java 1.8.
+
+Maintainers have a `local.properties` file in the root folder with the following:
+```
+sdk.dir=/path/to/android/sdk
+```
 
 Maintainers have a `secrets.properties` file in the `collect_app` folder with the following:
 ```
@@ -193,6 +201,8 @@ RELEASE_KEY_PASSWORD=secure-alias-password
 ```
 
 Maintainers also have a `google-services.json` file in the `collect_app/src/odkCollectRelease` folder. The contents of the file are similar to the contents of `collect_app/src/google-services.json`.
+
+When ready to generate a build for the Play Store, maintainers tag the build by [adding a release](releases). Tags for full releases must have the format `vX.X.X`. Tags for beta releases must have the format `vX.X.X-beta.X`.
 
 To generate official signed releases, you'll need the keystore file, the keystore passwords, a configured `collect_app/secrets.properties` file, and a configured `collect_app/src/odkCollectRelease/google-services.json` file. Then run `./gradlew assembleOdkCollectRelease`. If successful, a signed release will be at `collect_app/build/outputs/apk`.
 
@@ -208,7 +218,7 @@ When cloning the project from Android Studio, click "No" when prompted to open t
 
 #### Execution failed for task ':collect_app:transformClassesWithInstantRunForDebug'.
 
-We have seen this problem happen in both IntelliJ IDEA and Android Studio, and believe it to be due to a bug in the IDE, which we can't fix.  As a workaround, turning off [Instant Run](https://developer.android.com/studio/run/#set-up-ir) will usually avoid this problem.  We haven't yet found a way to use Instant Run with this project but this will most likely be fixed in Android Studio 3.5 with the new [Apply Changes](https://medium.com/androiddevelopers/android-studio-project-marble-apply-changes-e3048662e8cd) feature.
+We have seen this problem happen in both IntelliJ IDEA and Android Studio, and believe it to be due to a bug in the IDE, which we can't fix.  As a workaround, turning off [Instant Run](https://developer.android.com/studio/run/#set-up-ir) will usually avoid this problem. The problem is fixed in Android Studio 3.5 with the new [Apply Changes](https://medium.com/androiddevelopers/android-studio-project-marble-apply-changes-e3048662e8cd) feature.
 
 #### Moving to the main view if user minimizes the app
 If you build the app on your own using Android Studio `(Build -> Build APK)` and then install it (from an `.apk` file), you might notice this strange behaviour thoroughly described: [#1280](https://github.com/opendatakit/collect/issues/1280) and [#1142](https://github.com/opendatakit/collect/issues/1142).

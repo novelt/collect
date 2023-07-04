@@ -20,19 +20,20 @@ import android.os.Bundle;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceCategory;
-import android.view.View;
 
 import org.odk.collect.android.R;
-import org.odk.collect.android.application.Collect;
 import org.odk.collect.android.geo.MapConfigurator;
 import org.odk.collect.android.geo.MapProvider;
+import org.odk.collect.android.preferences.CaptionedListPreference.Item;
+import org.odk.collect.android.storage.StoragePathProvider;
+import org.odk.collect.android.storage.StorageStateProvider;
+import org.odk.collect.android.storage.StorageSubdirectory;
 import org.odk.collect.android.utilities.FileUtils;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-
-import androidx.annotation.Nullable;
 
 import static org.odk.collect.android.preferences.GeneralKeys.CATEGORY_BASEMAP;
 import static org.odk.collect.android.preferences.GeneralKeys.KEY_BASEMAP_SOURCE;
@@ -80,18 +81,6 @@ public class MapsPreferences extends BasePreferenceFragment {
         }
     }
 
-    @Override public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        toolbar.setTitle(R.string.maps);
-    }
-
-    @Override public void onDetach() {
-        super.onDetach();
-        if (toolbar != null) {
-            toolbar.setTitle(R.string.general_preferences);
-        }
-    }
-
     /**
      * Creates the Basemap Source preference widget (but doesn't add it to
      * the screen; onBasemapSourceChanged will do that part).
@@ -103,8 +92,14 @@ public class MapsPreferences extends BasePreferenceFragment {
         );
         onBasemapSourceChanged(MapProvider.getConfigurator());
         basemapSourcePref.setOnPreferenceChangeListener((pref, value) -> {
-            onBasemapSourceChanged(MapProvider.getConfigurator(value.toString()));
-            return true;
+            MapConfigurator cftor = MapProvider.getConfigurator(value.toString());
+            if (!cftor.isAvailable(context)) {
+                cftor.showUnavailableMessage(context);
+                return false;
+            } else {
+                onBasemapSourceChanged(cftor);
+                return true;
+            }
         });
     }
 
@@ -114,10 +109,7 @@ public class MapsPreferences extends BasePreferenceFragment {
         PreferenceCategory baseCategory = (PreferenceCategory) findPreference(CATEGORY_BASEMAP);
         baseCategory.removeAll();
         baseCategory.addPreference(basemapSourcePref);
-        if (!cftor.isAvailable(context)) {
-            cftor.showUnavailableMessage(context);
-            return;
-        }
+
         for (Preference pref : cftor.createPrefs(context)) {
             baseCategory.addPreference(pref);
         }
@@ -154,7 +146,7 @@ public class MapsPreferences extends BasePreferenceFragment {
                 summary = getString(R.string.none);
             } else {
                 MapConfigurator cftor = MapProvider.getConfigurator();
-                summary = cftor.getDisplayName(new File(value.toString()));
+                summary = cftor.getDisplayName(new File(new StoragePathProvider().getAbsoluteOfflineMapLayerPath(value.toString())));
             }
             referenceLayerPref.setSummary(summary);
         }
@@ -163,25 +155,46 @@ public class MapsPreferences extends BasePreferenceFragment {
     /** Sets up the contents of the reference layer selection dialog. */
     private void populateReferenceLayerPref() {
         MapConfigurator cftor = MapProvider.getConfigurator();
+        StorageStateProvider storageStateProvider = new StorageStateProvider();
+        StoragePathProvider storagePathProvider = new StoragePathProvider();
 
-        List<File> files = getSupportedLayerFiles(cftor);
-        String[] values = new String[files.size() + 1];
-        String[] labels = new String[files.size() + 1];
-        String[] captions = new String[files.size() + 1];
-        values[0] = null;
-        labels[0] = getString(R.string.none);
-        captions[0] = "";
-        for (int i = 0; i < files.size(); i++) {
-            String path = FileUtils.simplifyPath(files.get(i)).toString();
-            values[i + 1] = path;
-            labels[i + 1] = cftor.getDisplayName(files.get(i));
-            captions[i + 1] = path;
+        List<Item> items = new ArrayList<>();
+        items.add(new Item(null, getString(R.string.none), ""));
+        for (File file : getSupportedLayerFiles(cftor)) {
+            String path = storageStateProvider.isScopedStorageUsed()
+                    ? File.separator + StorageSubdirectory.LAYERS.getDirectoryName() + File.separator + storagePathProvider.getRelativeMapLayerPath(FileUtils.simplifyPath(file))
+                    : FileUtils.simplifyPath(file);
+            String value = storageStateProvider.isScopedStorageUsed()
+                    ? storagePathProvider.getRelativeMapLayerPath(file.getAbsolutePath())
+                    : path;
+            String name = cftor.getDisplayName(new File(file.getAbsolutePath()));
+            items.add(new Item(value, name, path));
         }
-        referenceLayerPref.setItems(values, labels, captions);
 
-        File layerDir = FileUtils.simplifyPath(new File(Collect.OFFLINE_LAYERS));
+        // Sort by display name, then by path for files with identical names.
+        Collections.sort(items, (a, b) -> {
+            if ((a.value == null) != (b.value == null)) {  // one or the other is null
+                return a.value == null ? -1 : 1;
+            }
+            if (!a.label.equalsIgnoreCase(b.label)) {
+                return a.label.compareToIgnoreCase(b.label);
+            }
+            if (!a.label.equals(b.label)) {
+                return a.label.compareTo(b.label);
+            }
+            if (a.value != null && b.value != null) {
+                return FileUtils.comparePaths(a.value, b.value);
+            }
+            return 0;  // both a.value and b.value are null
+        });
+
+        referenceLayerPref.setItems(items);
+
+        String layerDir = storageStateProvider.isScopedStorageUsed()
+                ? File.separator + StorageSubdirectory.LAYERS.getDirectoryName()
+                : FileUtils.simplifyPath(new File(storagePathProvider.getDirPath(StorageSubdirectory.LAYERS)));
         referenceLayerPref.setDialogCaption(context.getString(
-            files.isEmpty() ? R.string.layer_data_caption_none : R.string.layer_data_caption,
+            items.size() > 1 ? R.string.layer_data_caption : R.string.layer_data_caption_none,
             layerDir, context.getString(MapProvider.getSourceLabelId())
         ));
 
@@ -191,7 +204,7 @@ public class MapsPreferences extends BasePreferenceFragment {
     /** Gets the list of layer data files supported by the current MapConfigurator. */
     private static List<File> getSupportedLayerFiles(MapConfigurator cftor) {
         List<File> files = new ArrayList<>();
-        for (File file : FileUtils.walk(new File(Collect.OFFLINE_LAYERS))) {
+        for (File file : FileUtils.walk(new File(new StoragePathProvider().getDirPath(StorageSubdirectory.LAYERS)))) {
             if (cftor.supportsLayer(file)) {
                 files.add(file);
             }

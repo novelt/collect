@@ -23,6 +23,7 @@ public final class AdminKeys {
     public static final String KEY_VIEW_SENT                    = "view_sent";
     public static final String KEY_GET_BLANK                    = "get_blank";
     public static final String KEY_DELETE_SAVED                 = "delete_saved";
+    public static final String KEY_QR_CODE_SCANNER              = "qr_code_scanner";
 
     // form entry
     public static final String KEY_SAVE_MID                     = "save_mid";
@@ -70,7 +71,7 @@ public final class AdminKeys {
      * tuples of admin keys and the keys of general preferences that are removed if the admin
      * preference is false.
      */
-    static AdminAndGeneralKeys[] adminToGeneral = new AdminAndGeneralKeys[] {
+    static AdminAndGeneralKeys[] adminToGeneral = {
 
             ag(KEY_CHANGE_SERVER,              GeneralKeys.KEY_PROTOCOL),
             ag(KEY_CHANGE_SUBMISSION_TRANSPORT, GeneralKeys.KEY_TRANSPORT_PREFERENCE),
@@ -116,7 +117,8 @@ public final class AdminKeys {
             KEY_CHANGE_ADMIN_PASSWORD,
             KEY_MOVING_BACKWARDS,
             ALLOW_OTHER_WAYS_OF_EDITING_FORM,
-            KEY_MAPS
+            KEY_MAPS,
+            KEY_QR_CODE_SCANNER
     );
 
     static Collection<String> serverKeys = Collections.singletonList(

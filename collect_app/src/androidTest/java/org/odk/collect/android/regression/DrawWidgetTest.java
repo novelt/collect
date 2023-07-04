@@ -5,24 +5,21 @@ import android.Manifest;
 import androidx.test.rule.GrantPermissionRule;
 import androidx.test.runner.AndroidJUnit4;
 
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.odk.collect.android.R;
-import org.odk.collect.android.espressoutils.FormEntry;
-import org.odk.collect.android.espressoutils.MainMenu;
+import org.odk.collect.android.support.pages.FormEntryPage;
+import org.odk.collect.android.support.pages.MainMenuPage;
+import org.odk.collect.android.support.pages.SaveOrIgnoreDialog;
 import org.odk.collect.android.support.CopyFormRule;
 import org.odk.collect.android.support.ResetStateRule;
 import org.odk.collect.android.support.ScreenshotOnFailureTestRule;
 
-import static androidx.test.espresso.Espresso.pressBack;
-
 // Issue number NODK-209
 @RunWith(AndroidJUnit4.class)
-@Ignore("https://github.com/opendatakit/collect/issues/3205")
 public class DrawWidgetTest extends BaseRegressionTest {
 
     @Rule
@@ -42,64 +39,73 @@ public class DrawWidgetTest extends BaseRegressionTest {
     public void saveIgnoreDialog_ShouldUseBothOptions() {
 
         //TestCase1
-        MainMenu.startBlankForm("All widgets");
-        FormEntry.clickGoToIconInForm();
-        FormEntry.clickOnText("Image widgets");
-        FormEntry.clickOnText("Draw widget");
-        FormEntry.clickOnId(R.id.simple_button);
-        pressBack();
-        FormEntry.checkIsTextDisplayed("Exit Sketch Image");
-        FormEntry.checkIsStringDisplayed(R.string.keep_changes);
-        FormEntry.clickOnString(R.string.do_not_save);
-        FormEntry.clickOnId(R.id.simple_button);
-        pressBack();
-        FormEntry.clickOnString(R.string.keep_changes);
-        FormEntry.clickGoToIconInForm();
-        FormEntry.clickJumpEndButton();
-        FormEntry.clickSaveAndExit();
+        new MainMenuPage(rule)
+                .startBlankForm("All widgets")
+                .clickGoToArrow()
+                .clickOnText("Image widgets")
+                .clickOnText("Draw widget")
+                .clickOnId(R.id.simple_button)
+                .waitForRotationToEnd()
+                .pressBack(new SaveOrIgnoreDialog<>("Sketch Image", new FormEntryPage("All widgets", rule), rule))
+                .clickIgnoreChanges()
+                .waitForRotationToEnd()
+                .clickOnId(R.id.simple_button)
+                .waitForRotationToEnd()
+                .pressBack(new SaveOrIgnoreDialog<>("Sketch Image", new FormEntryPage("All widgets", rule), rule))
+                .clickSaveChanges()
+                .waitForRotationToEnd()
+                .clickGoToArrow()
+                .clickJumpEndButton()
+                .clickSaveAndExit();
     }
 
     @Test
     public void setColor_ShouldSeeColorPicker() {
 
         //TestCase2
-        MainMenu.startBlankForm("All widgets");
-        FormEntry.clickGoToIconInForm();
-        FormEntry.clickOnText("Image widgets");
-        FormEntry.clickOnText("Draw widget");
-        FormEntry.clickOnId(R.id.simple_button);
-        FormEntry.clickOnId(R.id.fab_actions);
-        FormEntry.clickOnId(R.id.fab_set_color);
-        FormEntry.clickOnString(R.string.ok);
-        pressBack();
-        FormEntry.clickOnString(R.string.keep_changes);
-        FormEntry.clickGoToIconInForm();
-        FormEntry.clickJumpEndButton();
-        FormEntry.clickSaveAndExit();
+        new MainMenuPage(rule)
+                .startBlankForm("All widgets")
+                .clickGoToArrow()
+                .clickOnText("Image widgets")
+                .clickOnText("Draw widget")
+                .clickOnId(R.id.simple_button)
+                .waitForRotationToEnd()
+                .clickOnId(R.id.fab_actions)
+                .clickOnId(R.id.fab_set_color)
+                .clickOnString(R.string.ok)
+                .pressBack(new SaveOrIgnoreDialog<>("Sketch Image", new FormEntryPage("All widgets", rule), rule))
+                .clickSaveChanges()
+                .waitForRotationToEnd()
+                .clickGoToArrow()
+                .clickJumpEndButton()
+                .clickSaveAndExit();
     }
 
     @Test
     public void multiClickOnPlus_ShouldDisplayIcons() {
 
         //TestCase3
-        MainMenu.startBlankForm("All widgets");
-        FormEntry.clickGoToIconInForm();
-        FormEntry.clickOnText("Image widgets");
-        FormEntry.clickOnText("Draw widget");
-        FormEntry.clickOnId(R.id.simple_button);
-        FormEntry.clickOnId(R.id.fab_actions);
-        FormEntry.checkIsStringDisplayed(R.string.set_color);
-        FormEntry.checkIsIdDisplayed(R.id.fab_clear);
-        FormEntry.clickOnId(R.id.fab_actions);
-        FormEntry.checkIsStringDisplayed(R.string.set_color);
-        FormEntry.checkIsIdDisplayed(R.id.fab_save_and_close);
-        FormEntry.clickOnId(R.id.fab_actions);
-        FormEntry.checkIsStringDisplayed(R.string.set_color);
-        FormEntry.checkIsStringDisplayed(R.string.set_color);
-        pressBack();
-        FormEntry.clickOnString(R.string.keep_changes);
-        FormEntry.clickGoToIconInForm();
-        FormEntry.clickJumpEndButton();
-        FormEntry.clickSaveAndExit();
+        new MainMenuPage(rule)
+                .startBlankForm("All widgets")
+                .clickGoToArrow()
+                .clickOnText("Image widgets")
+                .clickOnText("Draw widget")
+                .clickOnId(R.id.simple_button)
+                .waitForRotationToEnd()
+                .clickOnId(R.id.fab_actions)
+                .checkIsStringDisplayed(R.string.set_color)
+                .checkIsIdDisplayed(R.id.fab_clear)
+                .clickOnId(R.id.fab_actions)
+                .checkIsStringDisplayed(R.string.set_color)
+                .checkIsIdDisplayed(R.id.fab_save_and_close)
+                .clickOnId(R.id.fab_actions)
+                .checkIsStringDisplayed(R.string.set_color)
+                .checkIsStringDisplayed(R.string.set_color)
+                .pressBack(new SaveOrIgnoreDialog<>("Sketch Image", new FormEntryPage("All widgets", rule), rule))
+                .clickSaveChanges()
+                .waitForRotationToEnd()
+                .clickGoToArrow()
+                .clickJumpEndButton()
+                .clickSaveAndExit();
     }
 }

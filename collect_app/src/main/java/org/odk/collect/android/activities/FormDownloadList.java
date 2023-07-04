@@ -41,18 +41,19 @@ import org.odk.collect.android.activities.viewmodels.FormDownloadListViewModel;
 import org.odk.collect.android.adapters.FormDownloadListAdapter;
 import org.odk.collect.android.application.Collect;
 import org.odk.collect.android.dao.FormsDao;
-import org.odk.collect.android.http.HttpCredentialsInterface;
+import org.odk.collect.android.openrosa.HttpCredentialsInterface;
 import org.odk.collect.android.injection.DaggerUtils;
 import org.odk.collect.android.listeners.DownloadFormsTaskListener;
 import org.odk.collect.android.listeners.FormListDownloaderListener;
 import org.odk.collect.android.listeners.PermissionListener;
 import org.odk.collect.android.logic.FormDetails;
+import org.odk.collect.android.storage.StorageInitializer;
 import org.odk.collect.android.tasks.DownloadFormListTask;
 import org.odk.collect.android.tasks.DownloadFormsTask;
 import org.odk.collect.android.utilities.ApplicationConstants;
 import org.odk.collect.android.utilities.AuthDialogUtility;
 import org.odk.collect.android.utilities.DialogUtils;
-import org.odk.collect.android.utilities.DownloadFormListUtils;
+import org.odk.collect.android.utilities.FormListDownloader;
 import org.odk.collect.android.utilities.PermissionUtils;
 import org.odk.collect.android.utilities.ToastUtils;
 import org.odk.collect.android.utilities.WebCredentialsUtils;
@@ -69,8 +70,8 @@ import javax.inject.Inject;
 
 import timber.log.Timber;
 
-import static org.odk.collect.android.utilities.DownloadFormListUtils.DL_AUTH_REQUIRED;
-import static org.odk.collect.android.utilities.DownloadFormListUtils.DL_ERROR_MSG;
+import static org.odk.collect.android.utilities.FormListDownloader.DL_AUTH_REQUIRED;
+import static org.odk.collect.android.utilities.FormListDownloader.DL_ERROR_MSG;
 
 /**
  * Responsible for displaying, adding and deleting all the valid forms in the forms directory. One
@@ -123,7 +124,7 @@ public class FormDownloadList extends FormListActivity implements FormListDownlo
     WebCredentialsUtils webCredentialsUtils;
 
     @Inject
-    DownloadFormListUtils downloadFormListUtils;
+    FormListDownloader formListDownloader;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -142,7 +143,7 @@ public class FormDownloadList extends FormListActivity implements FormListDownlo
             public void granted() {
                 // must be at the beginning of any activity that can be called from an external intent
                 try {
-                    Collect.createODKDirs();
+                    new StorageInitializer().createOdkDirsOnStorage();
                 } catch (RuntimeException e) {
                     DialogUtils.showDialog(DialogUtils.createErrorDialog(FormDownloadList.this, e.getMessage(), EXIT), FormDownloadList.this);
                     return;
@@ -324,7 +325,7 @@ public class FormDownloadList extends FormListActivity implements FormListDownlo
                 downloadFormListTask = null;
             }
 
-            downloadFormListTask = new DownloadFormListTask(downloadFormListUtils);
+            downloadFormListTask = new DownloadFormListTask(formListDownloader);
             downloadFormListTask.setDownloaderListener(this);
 
             if (viewModel.isDownloadOnlyMode()) {
@@ -410,7 +411,7 @@ public class FormDownloadList extends FormListActivity implements FormListDownlo
      * starts the task to download the selected forms, also shows progress dialog
      */
     private void downloadSelectedFiles() {
-        ArrayList<FormDetails> filesToDownload = new ArrayList<FormDetails>();
+        ArrayList<FormDetails> filesToDownload = new ArrayList<>();
 
         SparseBooleanArray sba = listView.getCheckedItemPositions();
         for (int i = 0; i < listView.getCount(); i++) {
@@ -569,19 +570,19 @@ public class FormDownloadList extends FormListActivity implements FormListDownlo
 
             viewModel.clearFormList();
 
-            ArrayList<String> ids = new ArrayList<String>(viewModel.getFormNamesAndURLs().keySet());
+            ArrayList<String> ids = new ArrayList<>(viewModel.getFormNamesAndURLs().keySet());
             for (int i = 0; i < result.size(); i++) {
                 String formDetailsKey = ids.get(i);
                 FormDetails details = viewModel.getFormNamesAndURLs().get(formDetailsKey);
 
                 if (!displayOnlyUpdatedForms || (details.isNewerFormVersionAvailable() || details.areNewerMediaFilesAvailable())) {
-                    HashMap<String, String> item = new HashMap<String, String>();
+                    HashMap<String, String> item = new HashMap<>();
                     item.put(FORMNAME, details.getFormName());
                     item.put(FORMID_DISPLAY,
                             ((details.getFormVersion() == null) ? "" : (getString(R.string.version) + " "
-                                    + details.getFormVersion() + " ")) + "ID: " + details.getFormID());
+                                    + details.getFormVersion() + " ")) + "ID: " + details.getFormId());
                     item.put(FORMDETAIL_KEY, formDetailsKey);
-                    item.put(FORM_ID_KEY, details.getFormID());
+                    item.put(FORM_ID_KEY, details.getFormId());
                     item.put(FORM_VERSION_KEY, details.getFormVersion());
 
                     // Insert the new form in alphabetical order.
@@ -617,7 +618,7 @@ public class FormDownloadList extends FormListActivity implements FormListDownlo
                 ArrayList<FormDetails> filesToDownload  = new ArrayList<>();
 
                 for (FormDetails formDetails: viewModel.getFormNamesAndURLs().values()) {
-                    String formId = formDetails.getFormID();
+                    String formId = formDetails.getFormId();
 
                     if (viewModel.getFormResults().containsKey(formId)) {
                         filesToDownload.add(formDetails);
@@ -761,8 +762,8 @@ public class FormDownloadList extends FormListActivity implements FormListDownlo
             for (FormDetails formDetails: result.keySet()) {
                 String successKey = result.get(formDetails);
                 if (Collect.getInstance().getString(R.string.success).equals(successKey)) {
-                    if (viewModel.getFormResults().containsKey(formDetails.getFormID())) {
-                        viewModel.putFormResult(formDetails.getFormID(), true);
+                    if (viewModel.getFormResults().containsKey(formDetails.getFormId())) {
+                        viewModel.putFormResult(formDetails.getFormId(), true);
                     }
                 }
             }
@@ -778,7 +779,7 @@ public class FormDownloadList extends FormListActivity implements FormListDownlo
             b.append(k.getFormName() + " ("
                     + ((k.getFormVersion() != null)
                     ? (Collect.getInstance().getString(R.string.version) + ": " + k.getFormVersion() + " ")
-                    : "") + "ID: " + k.getFormID() + ") - " + result.get(k));
+                    : "") + "ID: " + k.getFormId() + ") - " + result.get(k));
             b.append("\n\n");
         }
 
