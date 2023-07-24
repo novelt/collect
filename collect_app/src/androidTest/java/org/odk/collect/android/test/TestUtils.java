@@ -1,17 +1,13 @@
 package org.odk.collect.android.test;
 
-import android.os.Environment;
-import androidx.test.espresso.PerformException;
-import androidx.test.espresso.UiController;
-import androidx.test.espresso.ViewAction;
-import androidx.test.espresso.util.HumanReadables;
-import androidx.test.espresso.util.TreeIterables;
 import android.view.View;
 
 import org.hamcrest.Matcher;
 import org.odk.collect.android.application.Collect;
 import org.odk.collect.android.preferences.GeneralSharedPreferences;
-import org.odk.collect.android.provider.InstanceProviderAPI;
+import org.odk.collect.android.provider.InstanceProviderAPI.InstanceColumns;
+import org.odk.collect.android.storage.StoragePathProvider;
+import org.odk.collect.android.storage.StorageSubdirectory;
 
 import java.io.Closeable;
 import java.io.File;
@@ -20,6 +16,12 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+
+import androidx.test.espresso.PerformException;
+import androidx.test.espresso.UiController;
+import androidx.test.espresso.ViewAction;
+import androidx.test.espresso.util.HumanReadables;
+import androidx.test.espresso.util.TreeIterables;
 
 import static androidx.test.espresso.matcher.ViewMatchers.isRoot;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
@@ -75,7 +77,7 @@ public final class TestUtils {
     }
 
     private static File tempFileDirectory() {
-        return new File(Environment.getExternalStorageDirectory(), "test-tmp");
+        return new File(new StoragePathProvider().getDirPath(StorageSubdirectory.INSTANCES), "test-tmp");
     }
 
     public static void closeSafely(Closeable c) {
@@ -89,7 +91,7 @@ public final class TestUtils {
     }
 
     public static void resetInstancesContentProvider() {
-        Collect.getInstance().getContentResolver().delete(InstanceProviderAPI.InstanceColumns.CONTENT_URI, null, null);
+        Collect.getInstance().getContentResolver().delete(InstanceColumns.CONTENT_URI, null, null);
     }
 
     public static void assertMatches(String expectedPattern, Object actual) {

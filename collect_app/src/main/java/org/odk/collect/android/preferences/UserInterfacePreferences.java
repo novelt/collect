@@ -22,7 +22,6 @@ import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
-import android.view.View;
 
 import org.odk.collect.android.R;
 import org.odk.collect.android.activities.MainMenuActivity;
@@ -32,10 +31,10 @@ import org.odk.collect.android.utilities.MediaUtils;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
-import androidx.annotation.Nullable;
 import timber.log.Timber;
 
 import static android.app.Activity.RESULT_CANCELED;
+import static org.odk.collect.android.activities.ActivityUtils.startActivityAndCloseAllOthers;
 import static org.odk.collect.android.preferences.GeneralKeys.KEY_APP_LANGUAGE;
 import static org.odk.collect.android.preferences.GeneralKeys.KEY_APP_THEME;
 import static org.odk.collect.android.preferences.GeneralKeys.KEY_FONT_SIZE;
@@ -69,20 +68,6 @@ public class UserInterfacePreferences extends BasePreferenceFragment {
         initSplashPrefs();
     }
 
-    @Override
-    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        toolbar.setTitle(R.string.client);
-    }
-
-    @Override
-    public void onDetach() {
-        super.onDetach();
-        if (toolbar != null) {
-            toolbar.setTitle(R.string.general_preferences);
-        }
-    }
-
     private void initThemePrefs() {
         final ListPreference pref = (ListPreference) findPreference(KEY_APP_THEME);
 
@@ -93,7 +78,7 @@ public class UserInterfacePreferences extends BasePreferenceFragment {
                 String entry = (String) ((ListPreference) preference).getEntries()[index];
                 if (!pref.getEntry().equals(entry)) {
                     preference.setSummary(entry);
-                    MainMenuActivity.startActivityAndCloseAllOthers(getActivity());
+                    startActivityAndCloseAllOthers(getActivity(), MainMenuActivity.class);
                 }
                 return true;
             });
@@ -160,7 +145,7 @@ public class UserInterfacePreferences extends BasePreferenceFragment {
                 edit.apply();
 
                 localeHelper.updateLocale(getActivity());
-                MainMenuActivity.startActivityAndCloseAllOthers(getActivity());
+                startActivityAndCloseAllOthers(getActivity(), MainMenuActivity.class);
                 return true;
             });
         }

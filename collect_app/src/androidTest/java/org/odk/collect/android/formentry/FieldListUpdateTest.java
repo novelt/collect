@@ -33,10 +33,10 @@ import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.odk.collect.android.R;
 import org.odk.collect.android.activities.FormEntryActivity;
-import org.odk.collect.android.application.Collect;
 import org.odk.collect.android.preferences.GeneralKeys;
 import org.odk.collect.android.preferences.GeneralSharedPreferences;
 import org.odk.collect.android.preferences.GuidanceHint;
+import org.odk.collect.android.storage.StoragePathProvider;
 import org.odk.collect.android.support.CopyFormRule;
 import org.odk.collect.android.support.ResetStateRule;
 import org.odk.collect.android.test.FormLoadingUtils;
@@ -71,6 +71,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.core.IsNot.not;
 import static org.hamcrest.core.StringStartsWith.startsWith;
+import static org.odk.collect.android.support.actions.NestedScrollToAction.nestedScrollTo;
 import static org.odk.collect.android.test.CustomMatchers.withIndex;
 
 public class FieldListUpdateTest {
@@ -87,7 +88,7 @@ public class FieldListUpdateTest {
                     Manifest.permission.CAMERA)
             )
             .around(new ResetStateRule())
-            .around(new CopyFormRule(FIELD_LIST_TEST_FORM, Collections.singletonList("fruits.csv")));
+            .around(new CopyFormRule(FIELD_LIST_TEST_FORM, Collections.singletonList("fruits.csv"), true));
 
     @Test
     public void relevanceChangeAtEnd_ShouldToggleLastWidgetVisibility() {
@@ -229,30 +230,32 @@ public class FieldListUpdateTest {
 
         // Selecting A1 for level 2 should reveal options for A1 at level 3
         onView(withText("A1")).perform(click());
+        onView(withText("A1A")).perform(nestedScrollTo());
         onView(withText("A1A")).check(matches(isDisplayed()));
         onView(withText("B1")).check(doesNotExist());
         onView(withText("C1")).check(doesNotExist());
     }
 
-        @Test
-        public void clearingParentSelect_ShouldUpdateAllDependentLevels() {
-            onView(withId(R.id.menu_goto)).perform(click());
-            onView(withId(R.id.menu_go_up)).perform(click());
-            onView(allOf(withText("Cascading select"), isDisplayed())).perform(click());
-            onView(withText(startsWith("Level1"))).perform(click());
+    @Test
+    public void clearingParentSelect_ShouldUpdateAllDependentLevels() {
+        onView(withId(R.id.menu_goto)).perform(click());
+        onView(withId(R.id.menu_go_up)).perform(click());
+        onView(allOf(withText("Cascading select"), isDisplayed())).perform(click());
+        onView(withText(startsWith("Level1"))).perform(click());
 
-            onView(withText("A")).perform(click());
-            onView(withText("A1")).perform(click());
-            onView(withText("A1B")).perform(click());
+        onView(withText("A")).perform(click());
 
-            onView(withText("A")).perform(longClick());
-            onView(withText(R.string.clear_answer)).perform(click());
-            onView(withText(R.string.discard_answer)).perform(click());
+        onView(withText("A1")).perform(nestedScrollTo(), click());
+        onView(withText("A1B")).perform(nestedScrollTo(), click());
 
-            onView(withIndex(withClassName(endsWith("RadioButton")), 0)).check(matches(isNotChecked()));
-            onView(withText("A1")).check(doesNotExist());
-            onView(withText("A1B")).check(doesNotExist());
-        }
+        onView(withText("A")).perform(nestedScrollTo(), longClick());
+        onView(withText(R.string.clear_answer)).perform(click());
+        onView(withText(R.string.discard_answer)).perform(click());
+
+        onView(withIndex(withClassName(endsWith("RadioButton")), 0)).check(matches(isNotChecked()));
+        onView(withText("A1")).check(doesNotExist());
+        onView(withText("A1B")).check(doesNotExist());
+    }
 
     @Test
     public void selectionChangeAtOneCascadeLevelWithMinimalAppearance_ShouldUpdateNextLevels() {
@@ -315,7 +318,7 @@ public class FieldListUpdateTest {
 
         // FormEntryActivity expects an image at a fixed path so copy the app logo there
         Bitmap icon = BitmapFactory.decodeResource(ApplicationProvider.getApplicationContext().getResources(), R.drawable.notes);
-        File tmpJpg = new File(Collect.TMPFILE_PATH);
+        File tmpJpg = new File(new StoragePathProvider().getTmpFilePath());
         tmpJpg.createNewFile();
         FileOutputStream fos = new FileOutputStream(tmpJpg);
         icon.compress(Bitmap.CompressFormat.JPEG, 90, fos);
@@ -381,10 +384,9 @@ public class FieldListUpdateTest {
     }
 
     @Test
-    public void search_function_in_field_list() throws InterruptedException {
+    public void searchInFieldList() throws InterruptedException {
         jumpToGroupWithText("Search in field-list");
         onView(withText(startsWith("Source15"))).perform(click());
-        Thread.sleep(1000);
         onView(withText("Select One Answer")).check(matches(isDisplayed())).perform(click());
         onView(withText("Mango")).check(matches(isDisplayed()));
         onView(withText("Oranges")).check(matches(isDisplayed()));

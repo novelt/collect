@@ -14,10 +14,13 @@ import android.widget.RadioButton;
 import android.widget.TextView;
 
 import org.odk.collect.android.R;
-import org.odk.collect.android.utilities.ObjectUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /** A ListPreference where each item has a caption and the entire dialog also has a caption. */
 public class CaptionedListPreference extends ListPreference {
@@ -37,10 +40,19 @@ public class CaptionedListPreference extends ListPreference {
     }
 
     /** Sets the values, labels, and captions for the items in the dialog. */
-    public void setItems(CharSequence[] values, CharSequence[] labels, CharSequence[] captions) {
-        setEntryValues(values != null ? values : new CharSequence[0]);
-        setEntries(labels != null ? labels : values);
-        setCaptions(captions != null ? captions : new CharSequence[values.length]);
+    public void setItems(List<Item> items) {
+        int count = items.size();
+        String[] values = new String[count];
+        String[] labels = new String[count];
+        String[] captions = new String[count];
+        for (int i = 0; i < count; i++) {
+            values[i] = items.get(i).value;
+            labels[i] = items.get(i).label;
+            captions[i] = items.get(i).caption;
+        }
+        setEntryValues(values);
+        setEntries(labels);
+        setCaptions(captions);
     }
 
     /** Sets the list of items to offer as choices in the dialog. */
@@ -94,7 +106,7 @@ public class CaptionedListPreference extends ListPreference {
         button.setOnClickListener(view -> onItemClicked(i));
         item.setOnClickListener(view -> onItemClicked(i));
         parent.addView(item);
-        if (ObjectUtils.equals(value, getSharedPreferences().getString(getKey(), null))) {
+        if (Objects.equals(value, getSharedPreferences().getString(getKey(), null))) {
             button.setChecked(true);
             item.post(() -> item.requestRectangleOnScreen(new Rect(0, 0, item.getWidth(), item.getHeight())));
         }
@@ -132,5 +144,17 @@ public class CaptionedListPreference extends ListPreference {
     /** Opens the dialog programmatically, rather than by a click from the user. */
     public void showDialog() {
         showDialog(null);
+    }
+
+    public static class Item {
+        public final @Nullable String value;
+        public final @NonNull String label;
+        public final @NonNull String caption;
+
+        public Item(@Nullable String value, @Nullable String label, @Nullable String caption) {
+            this.value = value;
+            this.label = label != null ? label : "";
+            this.caption = caption != null ? caption : "";
+        }
     }
 }

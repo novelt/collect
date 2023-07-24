@@ -20,16 +20,21 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 
+import org.javarosa.core.reference.ReferenceManager;
+import org.javarosa.core.reference.RootTranslator;
 import org.javarosa.xform.parse.XFormParser;
 import org.kxml2.kdom.Element;
 import org.odk.collect.android.R;
 import org.odk.collect.android.application.Collect;
 import org.odk.collect.android.dao.FormsDao;
-import org.odk.collect.android.http.CollectServerClient;
 import org.odk.collect.android.listeners.FormDownloaderListener;
+import org.odk.collect.android.logic.FileReferenceFactory;
 import org.odk.collect.android.logic.FormDetails;
 import org.odk.collect.android.logic.MediaFile;
-import org.odk.collect.android.provider.FormsProviderAPI;
+import org.odk.collect.android.openrosa.OpenRosaAPIClient;
+import org.odk.collect.android.provider.FormsProviderAPI.FormsColumns;
+import org.odk.collect.android.storage.StoragePathProvider;
+import org.odk.collect.android.storage.StorageSubdirectory;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -37,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +51,10 @@ import java.util.Map;
 import javax.inject.Inject;
 
 import timber.log.Timber;
+
+import static org.odk.collect.android.utilities.FileUtils.LAST_SAVED_FILENAME;
+import static org.odk.collect.android.utilities.FileUtils.STUB_XML;
+import static org.odk.collect.android.utilities.FileUtils.write;
 
 public class FormDownloader {
 
@@ -55,7 +65,8 @@ public class FormDownloader {
 
     private FormsDao formsDao;
 
-    @Inject CollectServerClient collectServerClient;
+    @Inject
+    OpenRosaAPIClient openRosaAPIClient;
 
     public FormDownloader() {
         Collect.getInstance().getComponent().inject(this);
@@ -126,7 +137,9 @@ public class FormDownloader {
             throw new TaskCancelledException();
         }
 
-        String tempMediaPath = null;
+        // use a temporary media path until everything is ok.
+        String tempMediaPath = new File(new StoragePathProvider().getDirPath(StorageSubdirectory.CACHE),
+                String.valueOf(System.currentTimeMillis())).getAbsolutePath();
         final String finalMediaPath;
         FileResult fileResult = null;
         try {
@@ -135,9 +148,6 @@ public class FormDownloader {
             fileResult = downloadXform(fd.getFormName(), fd.getDownloadUrl());
 
             if (fd.getManifestUrl() != null) {
-                // use a temporary media path until everything is ok.
-                tempMediaPath = new File(Collect.CACHE_PATH,
-                        String.valueOf(System.currentTimeMillis())).getAbsolutePath();
                 finalMediaPath = FileUtils.constructMediaPath(
                         fileResult.getFile().getAbsolutePath());
                 String error = downloadManifestAndMediaFiles(tempMediaPath, finalMediaPath, fd,
@@ -155,7 +165,7 @@ public class FormDownloader {
             // do not download additional forms.
             throw e;
         } catch (Exception e) {
-            message += getExceptionMessage(e);
+            return message + getExceptionMessage(e);
         }
 
         if (stateListener != null && stateListener.isTaskCanceled()) {
@@ -168,11 +178,23 @@ public class FormDownloader {
             try {
                 final long start = System.currentTimeMillis();
                 Timber.w("Parsing document %s", fileResult.file.getAbsolutePath());
-                parsedFields = FileUtils.parseXML(fileResult.file);
+
+                // Add a stub last-saved instance to the tmp media directory so it will be resolved
+                // when parsing a form definition with last-saved reference
+                File tmpLastSaved = new File(tempMediaPath, LAST_SAVED_FILENAME);
+                write(tmpLastSaved, STUB_XML.getBytes(Charset.forName("UTF-8")));
+                ReferenceManager.instance().reset();
+                ReferenceManager.instance().addReferenceFactory(new FileReferenceFactory(tempMediaPath));
+                ReferenceManager.instance().addSessionRootTranslator(new RootTranslator("jr://file-csv/", "jr://file/"));
+
+                parsedFields = FileUtils.getMetadataFromFormDefinition(fileResult.file);
+                ReferenceManager.instance().reset();
+                FileUtils.deleteAndReport(tmpLastSaved);
+
                 Timber.i("Parse finished in %.3f seconds.",
                         (System.currentTimeMillis() - start) / 1000F);
             } catch (RuntimeException e) {
-                message += e.getMessage();
+                return message + e.getMessage();
             }
         }
 
@@ -198,7 +220,7 @@ public class FormDownloader {
         return submission == null || Validator.isUrlValid(submission);
     }
 
-    private boolean installEverything(String tempMediaPath, FileResult fileResult, Map<String, String> parsedFields) {
+    boolean installEverything(String tempMediaPath, FileResult fileResult, Map<String, String> parsedFields) {
         UriResult uriResult = null;
         try {
             uriResult = findExistingOrCreateNewUri(fileResult.file, parsedFields);
@@ -291,9 +313,9 @@ public class FormDownloader {
                 uri = saveNewForm(formInfo, formFile, mediaPath);
             } else {
                 cursor.moveToFirst();
-                uri = Uri.withAppendedPath(FormsProviderAPI.FormsColumns.CONTENT_URI,
-                        cursor.getString(cursor.getColumnIndex(FormsProviderAPI.FormsColumns._ID)));
-                mediaPath = cursor.getString(cursor.getColumnIndex(FormsProviderAPI.FormsColumns.FORM_MEDIA_PATH));
+                uri = Uri.withAppendedPath(FormsColumns.CONTENT_URI,
+                        cursor.getString(cursor.getColumnIndex(FormsColumns._ID)));
+                mediaPath = new StoragePathProvider().getAbsoluteFormFilePath(cursor.getString(cursor.getColumnIndex(FormsColumns.FORM_MEDIA_PATH)));
             }
         }
 
@@ -302,15 +324,16 @@ public class FormDownloader {
 
     private Uri saveNewForm(Map<String, String> formInfo, File formFile, String mediaPath) {
         final ContentValues v = new ContentValues();
-        v.put(FormsProviderAPI.FormsColumns.FORM_FILE_PATH,          formFile.getAbsolutePath());
-        v.put(FormsProviderAPI.FormsColumns.FORM_MEDIA_PATH,         mediaPath);
-        v.put(FormsProviderAPI.FormsColumns.DISPLAY_NAME,            formInfo.get(FileUtils.TITLE));
-        v.put(FormsProviderAPI.FormsColumns.JR_VERSION,              formInfo.get(FileUtils.VERSION));
-        v.put(FormsProviderAPI.FormsColumns.JR_FORM_ID,              formInfo.get(FileUtils.FORMID));
-        v.put(FormsProviderAPI.FormsColumns.SUBMISSION_URI,          formInfo.get(FileUtils.SUBMISSIONURI));
-        v.put(FormsProviderAPI.FormsColumns.BASE64_RSA_PUBLIC_KEY,   formInfo.get(FileUtils.BASE64_RSA_PUBLIC_KEY));
-        v.put(FormsProviderAPI.FormsColumns.AUTO_DELETE,             formInfo.get(FileUtils.AUTO_DELETE));
-        v.put(FormsProviderAPI.FormsColumns.AUTO_SEND,             formInfo.get(FileUtils.AUTO_SEND));
+        v.put(FormsColumns.FORM_FILE_PATH,          new StoragePathProvider().getFormDbPath(formFile.getAbsolutePath()));
+        v.put(FormsColumns.FORM_MEDIA_PATH,         new StoragePathProvider().getFormDbPath(mediaPath));
+        v.put(FormsColumns.DISPLAY_NAME,            formInfo.get(FileUtils.TITLE));
+        v.put(FormsColumns.JR_VERSION,              formInfo.get(FileUtils.VERSION));
+        v.put(FormsColumns.JR_FORM_ID,              formInfo.get(FileUtils.FORMID));
+        v.put(FormsColumns.SUBMISSION_URI,          formInfo.get(FileUtils.SUBMISSIONURI));
+        v.put(FormsColumns.BASE64_RSA_PUBLIC_KEY,   formInfo.get(FileUtils.BASE64_RSA_PUBLIC_KEY));
+        v.put(FormsColumns.AUTO_DELETE,             formInfo.get(FileUtils.AUTO_DELETE));
+        v.put(FormsColumns.AUTO_SEND,               formInfo.get(FileUtils.AUTO_SEND));
+        v.put(FormsColumns.GEOMETRY_XPATH,          formInfo.get(FileUtils.GEOMETRY_XPATH));
         return formsDao.saveForm(v);
     }
 
@@ -318,19 +341,18 @@ public class FormDownloader {
      * Takes the formName and the URL and attempts to download the specified file. Returns a file
      * object representing the downloaded file.
      */
-    private FileResult downloadXform(String formName, String url)
+    FileResult downloadXform(String formName, String url)
             throws IOException, TaskCancelledException, Exception {
         // clean up friendly form name...
-        String rootName = formName.replaceAll("[^\\p{L}\\p{Digit}]", " ");
-        rootName = rootName.replaceAll("\\p{javaWhitespace}+", " ");
-        rootName = rootName.trim();
+        String rootName = FormNameUtils.formatFilenameFromFormName(formName);
 
         // proposed name of xml file...
-        String path = Collect.FORMS_PATH + File.separator + rootName + ".xml";
+        StoragePathProvider storagePathProvider = new StoragePathProvider();
+        String path = storagePathProvider.getDirPath(StorageSubdirectory.FORMS) + File.separator + rootName + ".xml";
         int i = 2;
         File f = new File(path);
         while (f.exists()) {
-            path = Collect.FORMS_PATH + File.separator + rootName + "_" + i + ".xml";
+            path = storagePathProvider.getDirPath(StorageSubdirectory.FORMS) + File.separator + rootName + "_" + i + ".xml";
             f = new File(path);
             i++;
         }
@@ -356,7 +378,7 @@ public class FormDownloader {
                 FileUtils.deleteAndReport(f);
 
                 // set the file returned to the file we already had
-                String existingPath = c.getString(c.getColumnIndex(FormsProviderAPI.FormsColumns.FORM_FILE_PATH));
+                String existingPath = storagePathProvider.getAbsoluteFormFilePath(c.getString(c.getColumnIndex(FormsColumns.FORM_FILE_PATH)));
                 f = new File(existingPath);
                 Timber.w("Will use %s", existingPath);
             }
@@ -382,7 +404,7 @@ public class FormDownloader {
     private void downloadFile(File file, String downloadUrl)
             throws IOException, TaskCancelledException, URISyntaxException, Exception {
         File tempFile = File.createTempFile(file.getName(), TEMP_DOWNLOAD_EXTENSION,
-                new File(Collect.CACHE_PATH));
+                new File(new StoragePathProvider().getDirPath(StorageSubdirectory.CACHE)));
 
         // WiFi network connections can be renegotiated during a large form download sequence.
         // This will cause intermittent download failures.  Silently retry once after each
@@ -401,7 +423,7 @@ public class FormDownloader {
                 OutputStream os = null;
 
                 try {
-                    is = collectServerClient.getHttpInputStream(downloadUrl, null).getInputStream();
+                    is = openRosaAPIClient.getFile(downloadUrl, null);
                     os = new FileOutputStream(tempFile);
 
                     byte[] buf = new byte[4096];
@@ -497,12 +519,12 @@ public class FormDownloader {
         }
     }
 
-    private static class FileResult {
+    static class FileResult {
 
         private final File file;
         private final boolean isNew;
 
-        private FileResult(File file, boolean isNew) {
+        FileResult(File file, boolean isNew) {
             this.file = file;
             this.isNew = isNew;
         }
@@ -516,7 +538,7 @@ public class FormDownloader {
         }
     }
 
-    private String downloadManifestAndMediaFiles(String tempMediaPath, String finalMediaPath,
+    String downloadManifestAndMediaFiles(String tempMediaPath, String finalMediaPath,
                                                  FormDetails fd, int count,
                                                  int total) throws Exception {
         if (fd.getManifestUrl() == null) {
@@ -528,9 +550,9 @@ public class FormDownloader {
                     String.valueOf(count), String.valueOf(total));
         }
 
-        List<MediaFile> files = new ArrayList<MediaFile>();
+        List<MediaFile> files = new ArrayList<>();
 
-        DocumentFetchResult result = collectServerClient.getXmlDocument(fd.getManifestUrl());
+        DocumentFetchResult result = openRosaAPIClient.getXML(fd.getManifestUrl());
 
         if (result.errorMessage != null) {
             return result.errorMessage;

@@ -26,7 +26,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -38,13 +37,11 @@ import com.google.android.gms.auth.GoogleAuthException;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 
 import org.odk.collect.android.R;
-import org.odk.collect.android.dao.InstancesDao;
 import org.odk.collect.android.fragments.dialogs.GoogleSheetsUploaderProgressDialog;
 import org.odk.collect.android.injection.DaggerUtils;
 import org.odk.collect.android.listeners.InstanceUploaderListener;
 import org.odk.collect.android.listeners.PermissionListener;
 import org.odk.collect.android.preferences.GeneralKeys;
-import org.odk.collect.android.provider.InstanceProviderAPI.InstanceColumns;
 import org.odk.collect.android.tasks.InstanceGoogleSheetsUploaderTask;
 import org.odk.collect.android.utilities.ArrayUtils;
 import org.odk.collect.android.utilities.InstanceUploaderUtils;
@@ -54,8 +51,6 @@ import org.odk.collect.android.utilities.gdrive.GoogleAccountsManager;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Set;
 
 import javax.inject.Inject;
 
@@ -90,9 +85,7 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
         // 1) Google Sheets is selected in preferences
         // 2) A google user is selected
 
-        // default initializers
         alertMsg = getString(R.string.please_wait);
-        alertShowing = false;
 
         setTitle(getString(R.string.send_data));
 
@@ -127,22 +120,16 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
     }
 
     private void runTask() {
-        instanceGoogleSheetsUploaderTask = (InstanceGoogleSheetsUploaderTask) getLastCustomNonConfigurationInstance();
-        if (instanceGoogleSheetsUploaderTask == null) {
-            instanceGoogleSheetsUploaderTask = new InstanceGoogleSheetsUploaderTask(accountsManager);
+        instanceGoogleSheetsUploaderTask = new InstanceGoogleSheetsUploaderTask(accountsManager);
 
-            // ensure we have a google account selected
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-            String googleUsername = prefs.getString(
-                    GeneralKeys.KEY_SELECTED_GOOGLE_ACCOUNT, null);
-            if (googleUsername == null || googleUsername.equals("")) {
-                showDialog(GOOGLE_USER_DIALOG);
-            } else {
-                new AuthorizationChecker().execute();
-            }
+        // ensure we have a google account selected
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        String googleUsername = prefs.getString(
+                GeneralKeys.KEY_SELECTED_GOOGLE_ACCOUNT, null);
+        if (googleUsername == null || googleUsername.equals("")) {
+            showDialog(GOOGLE_USER_DIALOG);
         } else {
-            // it's not null, so we have a task running
-            // progress dialog is handled by the system
+            new AuthorizationChecker().execute();
         }
     }
 
@@ -197,8 +184,7 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
      *                    activity result.
      */
     @Override
-    protected void onActivityResult(
-            int requestCode, int resultCode, Intent data) {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (resultCode == RESULT_CANCELED) {
@@ -206,13 +192,11 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
             finish();
         }
 
-        switch (requestCode) {
-            case REQUEST_AUTHORIZATION:
-                dismissProgressDialog();
-                if (resultCode == RESULT_OK) {
-                    getResultsFromApi();
-                }
-                break;
+        if (requestCode == REQUEST_AUTHORIZATION) {
+            dismissProgressDialog();
+            if (resultCode == RESULT_OK) {
+                getResultsFromApi();
+            }
         }
     }
 
@@ -247,11 +231,6 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
     }
 
     @Override
-    public Object onRetainCustomNonConfigurationInstance() {
-        return instanceGoogleSheetsUploaderTask;
-    }
-
-    @Override
     protected void onPause() {
         super.onPause();
         if (alertDialog != null && alertDialog.isShowing()) {
@@ -276,7 +255,7 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
         try {
             dismissProgressDialog();
         } catch (Exception e) {
-            // tried to close a dialog not open. don't care.
+            Timber.w(e);
         }
 
         if (result == null) {
@@ -286,35 +265,7 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
         Timber.i("uploadingComplete: Processing results ( %d ) from upload of %d instances!",
                 result.size(), instancesToSend.length);
 
-        StringBuilder selection = new StringBuilder();
-        Set<String> keys = result.keySet();
-        String message;
-
-        if (keys.isEmpty()) {
-            message = getString(R.string.no_forms_uploaded);
-        } else {
-            Iterator<String> it = keys.iterator();
-
-            String[] selectionArgs = new String[keys.size()];
-            int i = 0;
-            while (it.hasNext()) {
-                String id = it.next();
-                selection.append(InstanceColumns._ID + "=?");
-                selectionArgs[i++] = id;
-                if (i != keys.size()) {
-                    selection.append(" or ");
-                }
-            }
-
-            try (Cursor results = new InstancesDao().getInstancesCursor(selection.toString(), selectionArgs)) {
-                if (results != null && results.getCount() > 0) {
-                    message = InstanceUploaderUtils.getUploadResultMessage(results, result);
-                } else {
-                    message = getString(R.string.no_forms_uploaded);
-                }
-            }
-        }
-        createAlertDialog(message.trim());
+        createAlertDialog(InstanceUploaderUtils.getUploadResultMessage(this, result));
     }
 
     @Override
@@ -328,20 +279,19 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
 
     @Override
     protected Dialog onCreateDialog(int id) {
-        switch (id) {
-            case GOOGLE_USER_DIALOG:
-                AlertDialog.Builder gudBuilder = new AlertDialog.Builder(this);
+        if (id == GOOGLE_USER_DIALOG) {
+            AlertDialog.Builder gudBuilder = new AlertDialog.Builder(this);
 
-                gudBuilder.setTitle(getString(R.string.no_google_account));
-                gudBuilder.setMessage(getString(R.string.google_set_account));
-                gudBuilder.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        finish();
-                    }
-                });
-                gudBuilder.setCancelable(false);
-                return gudBuilder.create();
+            gudBuilder.setTitle(getString(R.string.no_google_account));
+            gudBuilder.setMessage(getString(R.string.google_set_account));
+            gudBuilder.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    finish();
+                }
+            });
+            gudBuilder.setCancelable(false);
+            return gudBuilder.create();
         }
         return null;
     }
@@ -351,12 +301,10 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
         alertDialog.setTitle(getString(R.string.upload_results));
         alertDialog.setMessage(message);
         DialogInterface.OnClickListener quitListener = (dialog, i) -> {
-            switch (i) {
-                case DialogInterface.BUTTON1: // ok
-                    // always exit this activity since it has no interface
-                    alertShowing = false;
-                    finish();
-                    break;
+            if (i == DialogInterface.BUTTON1) { // ok
+                // always exit this activity since it has no interface
+                alertShowing = false;
+                finish();
             }
         };
         alertDialog.setCancelable(false);
@@ -372,11 +320,13 @@ public class GoogleSheetsUploaderActivity extends CollectAbstractActivity implem
     }
 
     private void authorized() {
-        GoogleSheetsUploaderProgressDialog.newInstance(alertMsg)
-                .show(getSupportFragmentManager(), GOOGLE_SHEETS_UPLOADER_PROGRESS_DIALOG_TAG);
+        if (instanceGoogleSheetsUploaderTask.getStatus() == AsyncTask.Status.PENDING) {
+            GoogleSheetsUploaderProgressDialog.newInstance(alertMsg)
+                    .show(getSupportFragmentManager(), GOOGLE_SHEETS_UPLOADER_PROGRESS_DIALOG_TAG);
 
-        instanceGoogleSheetsUploaderTask.setUploaderListener(this);
-        instanceGoogleSheetsUploaderTask.execute(instancesToSend);
+            instanceGoogleSheetsUploaderTask.setUploaderListener(this);
+            instanceGoogleSheetsUploaderTask.execute(instancesToSend);
+        }
     }
 
     private void dismissProgressDialog() {

@@ -9,13 +9,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
-import org.odk.collect.android.espressoutils.FormEntry;
-import org.odk.collect.android.espressoutils.MainMenu;
+
+import org.odk.collect.android.support.pages.FormEntryPage;
+import org.odk.collect.android.support.pages.MainMenuPage;
+import org.odk.collect.android.support.pages.SaveOrIgnoreDialog;
 import org.odk.collect.android.support.CopyFormRule;
 import org.odk.collect.android.support.ResetStateRule;
-
-import static androidx.test.espresso.Espresso.closeSoftKeyboard;
-import static androidx.test.espresso.Espresso.pressBack;
 
 // Issue number NODK-251
 @RunWith(AndroidJUnit4.class)
@@ -34,30 +33,32 @@ public class FormValidationTest extends BaseRegressionTest {
     @Test
     public void invalidAnswer_ShouldDisplayAllQuestionsOnOnePage() {
 
-        MainMenu.startBlankForm("OnePageFormShort");
-        FormEntry.putTextOnIndex(0, "A");
-        FormEntry.clickGoToIconInForm();
-        FormEntry.clickJumpEndButton();
-        FormEntry.clickSaveAndExit();
-        FormEntry.checkIsToastWithMessageDisplayes("Response length must be between 5 and 15", main);
-        FormEntry.checkIsTextDisplayed("Integer");
-        FormEntry.putTextOnIndex(0, "Aaaaa");
-        FormEntry.clickGoToIconInForm();
-        FormEntry.clickJumpEndButton();
-        FormEntry.clickSaveAndExit();
+        new MainMenuPage(rule)
+                .startBlankForm("OnePageFormShort")
+                .putTextOnIndex(0, "A")
+                .clickGoToArrow()
+                .clickJumpEndButton()
+                .clickSaveAndExitWhenValidationErrorIsExpected()
+                .checkIsToastWithMessageDisplayed("Response length must be between 5 and 15")
+                .assertText("Integer")
+                .putTextOnIndex(0, "Aaaaa")
+                .clickGoToArrow()
+                .clickJumpEndButton()
+                .clickSaveAndExit();
     }
 
     @Test
     public void openHierarchyView_ShouldSeeShortForms() {
 
         //TestCase3
-        MainMenu.startBlankForm("OnePageFormShort");
-        FormEntry.clickGoToIconInForm();
-        FormEntry.checkIsTextDisplayed("YY MM");
-        FormEntry.checkIsTextDisplayed("YY");
-        pressBack();
-        closeSoftKeyboard();
-        pressBack();
-        FormEntry.clickIgnoreChanges();
+        new MainMenuPage(rule)
+                .startBlankForm("OnePageFormShort")
+                .clickGoToArrow()
+                .assertText("YY MM")
+                .assertText("YY")
+                .pressBack(new FormEntryPage("OnePageFormShort", rule))
+                .closeSoftKeyboard()
+                .pressBack(new SaveOrIgnoreDialog<>("OnePageFormShort", new MainMenuPage(rule), rule))
+                .clickIgnoreChanges();
     }
 }

@@ -21,12 +21,14 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.DialogPreference;
 import android.util.AttributeSet;
 import android.view.View;
-import android.widget.CheckBox;
 import android.widget.CompoundButton;
+
+import androidx.appcompat.widget.AppCompatCheckBox;
 
 import org.odk.collect.android.R;
 import org.odk.collect.android.fragments.dialogs.ResetSettingsResultDialog;
@@ -41,12 +43,12 @@ import static org.odk.collect.android.fragments.dialogs.ResetSettingsResultDialo
 import static org.odk.collect.android.utilities.ResetUtility.ResetAction.RESET_PREFERENCES;
 
 public class ResetDialogPreference extends DialogPreference implements CompoundButton.OnCheckedChangeListener {
-    private CheckBox preferences;
-    private CheckBox instances;
-    private CheckBox forms;
-    private CheckBox layers;
-    private CheckBox cache;
-    private CheckBox osmDroid;
+    private AppCompatCheckBox preferences;
+    private AppCompatCheckBox instances;
+    private AppCompatCheckBox forms;
+    private AppCompatCheckBox layers;
+    private AppCompatCheckBox cache;
+    private AppCompatCheckBox osmDroid;
     private ProgressDialog progressDialog;
 
     public ResetDialogPreference(Context context, AttributeSet attrs) {
@@ -106,17 +108,25 @@ public class ResetDialogPreference extends DialogPreference implements CompoundB
         if (osmDroid.isChecked()) {
             resetActions.add(ResetUtility.ResetAction.RESET_OSM_DROID);
         }
+
         if (!resetActions.isEmpty()) {
-            showProgressDialog();
-            Runnable runnable = new Runnable() {
+            new AsyncTask<Void, Void, List<Integer>>() {
                 @Override
-                public void run() {
-                    List<Integer> failedResetActions = new ResetUtility().reset(getContext(), resetActions);
+                protected void onPreExecute() {
+                    showProgressDialog();
+                }
+
+                @Override
+                protected List<Integer> doInBackground(Void... voids) {
+                    return new ResetUtility().reset(getContext(), resetActions);
+                }
+
+                @Override
+                protected void onPostExecute(List<Integer> failedResetActions) {
                     hideProgressDialog();
                     handleResult(resetActions, failedResetActions);
                 }
-            };
-            new Thread(runnable).start();
+            }.execute();
         }
     }
 

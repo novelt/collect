@@ -20,11 +20,8 @@ import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.preference.EditTextPreference;
 import android.preference.Preference;
-import android.preference.PreferenceManager;
-import androidx.appcompat.content.res.AppCompatResources;
 import android.telephony.PhoneNumberUtils;
 import android.text.InputFilter;
 import android.text.TextUtils;
@@ -34,17 +31,15 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListPopupWindow;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-
 import org.odk.collect.android.R;
-import org.odk.collect.android.application.Collect;
-import org.odk.collect.android.http.CollectServerClient;
+import org.odk.collect.android.analytics.Analytics;
 import org.odk.collect.android.injection.DaggerUtils;
 import org.odk.collect.android.listeners.OnBackPressedListener;
 import org.odk.collect.android.listeners.PermissionListener;
+import org.odk.collect.android.openrosa.OpenRosaAPIClient;
 import org.odk.collect.android.preferences.filters.ControlCharacterFilter;
 import org.odk.collect.android.preferences.filters.WhitespaceFilter;
+import org.odk.collect.android.preferences.utilities.ChangingServerUrlUtils;
 import org.odk.collect.android.utilities.FileUtils;
 import org.odk.collect.android.utilities.PermissionUtils;
 import org.odk.collect.android.utilities.PlayServicesUtil;
@@ -54,13 +49,14 @@ import org.odk.collect.android.utilities.Validator;
 import org.odk.collect.android.utilities.gdrive.GoogleAccountsManager;
 
 import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 import javax.inject.Inject;
 
 import static android.app.Activity.RESULT_OK;
+import static org.odk.collect.android.analytics.AnalyticsEvents.SET_CUSTOM_ENDPOINT;
+import static org.odk.collect.android.analytics.AnalyticsEvents.SET_FALLBACK_SHEETS_URL;
+import static org.odk.collect.android.analytics.AnalyticsEvents.SET_SERVER;
 import static org.odk.collect.android.preferences.GeneralKeys.KEY_FORMLIST_URL;
 import static org.odk.collect.android.preferences.GeneralKeys.KEY_PROTOCOL;
 import static org.odk.collect.android.preferences.GeneralKeys.KEY_SELECTED_GOOGLE_ACCOUNT;
@@ -78,7 +74,6 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
         View.OnTouchListener, OnBackPressedListener {
 
     private static final int REQUEST_ACCOUNT_PICKER = 1000;
-    private static final String KNOWN_URL_LIST = "knownUrlList";
     protected EditTextPreference serverUrlPreference;
     protected EditTextPreference usernamePreference;
     protected EditTextPreference passwordPreference;
@@ -86,15 +81,17 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
     protected EditTextPreference submissionUrlPreference;
     protected EditTextPreference formListUrlPreference;
     private ListPopupWindow listPopupWindow;
-    private List<String> urlList;
     private Preference selectedGoogleAccountPreference;
     private boolean allowClickSelectedGoogleAccountPreference = true;
 
     @Inject
-    CollectServerClient collectServerClient;
+    OpenRosaAPIClient openRosaAPIClient;
 
     @Inject
     GoogleAccountsManager accountsManager;
+
+    @Inject
+    Analytics analytics;
 
     /*
     private ListPreference transportPreference;
@@ -119,24 +116,9 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
         usernamePreference = (EditTextPreference) findPreference(GeneralKeys.KEY_USERNAME);
         passwordPreference = (EditTextPreference) findPreference(GeneralKeys.KEY_PASSWORD);
 
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        String urlListString = prefs.getString(KNOWN_URL_LIST, "");
-        if (urlListString.isEmpty()) {
-            urlList = new ArrayList<>();
-        } else {
-            urlList =
-                    new Gson().fromJson(urlListString, new TypeToken<List<String>>() {
-                    }.getType());
-        }
-        if (urlList.isEmpty()) {
-            addUrlToPreferencesList(getString(R.string.default_server_url), prefs);
-        }
-
         urlDropdownSetup();
 
-        // TODO: use just 'serverUrlPreference.getEditText().setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_arrow_drop_down, 0);' once minSdkVersion is >= 21
-        serverUrlPreference.getEditText().setCompoundDrawablesWithIntrinsicBounds(null, null,
-                AppCompatResources.getDrawable(getActivity(), R.drawable.ic_arrow_drop_down), null);
+        serverUrlPreference.getEditText().setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_arrow_drop_down, 0);
         serverUrlPreference.getEditText().setOnTouchListener(this);
         serverUrlPreference.setOnPreferenceChangeListener(createChangeListener());
         serverUrlPreference.setSummary(serverUrlPreference.getText());
@@ -152,7 +134,18 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
         maskPasswordSummary(passwordPreference.getText());
         passwordPreference.getEditText().setFilters(
                 new InputFilter[]{new ControlCharacterFilter()});
-
+        serverUrlPreference.setOnPreferenceClickListener(preference -> {
+            serverUrlPreference.getEditText().requestFocus();
+            return true;
+        });
+        usernamePreference.setOnPreferenceClickListener(preference -> {
+            usernamePreference.getEditText().requestFocus();
+            return true;
+        });
+        passwordPreference.setOnPreferenceClickListener(preference -> {
+            passwordPreference.getEditText().requestFocus();
+            return true;
+        });
         //setupTransportPreferences();
         getPreferenceScreen().removePreference(findPreference(KEY_TRANSPORT_PREFERENCE));
         getPreferenceScreen().removePreference(findPreference(KEY_SMS_PREFERENCE));
@@ -227,6 +220,12 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
         googleSheetsUrlPreference.getEditText().setFilters(new InputFilter[]{
                 new ControlCharacterFilter(), new WhitespaceFilter()
         });
+
+        googleSheetsUrlPreference.setOnPreferenceClickListener(preference -> {
+            googleSheetsUrlPreference.getEditText().requestFocus();
+            return true;
+        });
+
         initAccountPreferences();
         //setupTransportPreferences();
         getPreferenceScreen().removePreference(findPreference(KEY_TRANSPORT_PREFERENCE));
@@ -247,10 +246,18 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
         formListUrlPreference.setOnPreferenceChangeListener(createChangeListener());
         formListUrlPreference.setSummary(formListUrlPreference.getText());
         formListUrlPreference.getEditText().setFilters(filters);
+        formListUrlPreference.setOnPreferenceClickListener(preference -> {
+            formListUrlPreference.getEditText().requestFocus();
+            return true;
+        });
 
         submissionUrlPreference.setOnPreferenceChangeListener(createChangeListener());
         submissionUrlPreference.setSummary(submissionUrlPreference.getText());
         submissionUrlPreference.getEditText().setFilters(filters);
+        submissionUrlPreference.setOnPreferenceClickListener(preference -> {
+            submissionUrlPreference.getEditText().requestFocus();
+            return true;
+        });
     }
 
     public void initAccountPreferences() {
@@ -283,28 +290,19 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
         });
     }
 
-    private void addUrlToPreferencesList(String url, SharedPreferences prefs) {
-        urlList.add(0, url);
-        String urlListString = new Gson().toJson(urlList);
-        prefs
-                .edit()
-                .putString(KNOWN_URL_LIST, urlListString)
-                .apply();
-    }
-
     private void urlDropdownSetup() {
         listPopupWindow = new ListPopupWindow(getActivity());
         setupUrlDropdownAdapter();
         listPopupWindow.setAnchorView(serverUrlPreference.getEditText());
         listPopupWindow.setModal(true);
         listPopupWindow.setOnItemClickListener((parent, view, position, id) -> {
-            serverUrlPreference.getEditText().setText(urlList.get(position));
+            serverUrlPreference.getEditText().setText(ChangingServerUrlUtils.getUrlList().get(position));
             listPopupWindow.dismiss();
         });
     }
 
     private void setupUrlDropdownAdapter() {
-        ArrayAdapter adapter = new ArrayAdapter<>(getActivity(), android.R.layout.simple_list_item_1, urlList);
+        ArrayAdapter adapter = new ArrayAdapter<>(getActivity(), android.R.layout.simple_list_item_1, ChangingServerUrlUtils.getUrlList());
         listPopupWindow.setAdapter(adapter);
     }
 
@@ -338,23 +336,8 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
                         sendAnalyticsEvent(url);
 
                         preference.setSummary(newValue.toString());
-                        SharedPreferences prefs = PreferenceManager
-                                .getDefaultSharedPreferences(getActivity().getApplicationContext());
-                        String urlListString = prefs.getString(KNOWN_URL_LIST, "");
-
-                        urlList =
-                                new Gson().fromJson(urlListString,
-                                        new TypeToken<List<String>>() {
-                                        }.getType());
-
-                        if (!urlList.contains(url)) {
-                            // We store a list with at most 5 elements
-                            if (urlList.size() == 5) {
-                                urlList.remove(4);
-                            }
-                            addUrlToPreferencesList(url, prefs);
-                            setupUrlDropdownAdapter();
-                        }
+                        ChangingServerUrlUtils.addUrlToList(url);
+                        setupUrlDropdownAdapter();
                     } else {
                         ToastUtils.showShortToast(R.string.url_error);
                         return false;
@@ -395,6 +378,9 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
 
                     if (Validator.isUrlValid(url)) {
                         preference.setSummary(url + "\n\n" + getString(R.string.google_sheets_url_hint));
+
+                        String urlHash = FileUtils.getMd5Hash(new ByteArrayInputStream(url.getBytes()));
+                        analytics.logEvent(SET_FALLBACK_SHEETS_URL, urlHash);
                     } else if (url.length() == 0) {
                         preference.setSummary(getString(R.string.google_sheets_url_hint));
                     } else {
@@ -416,6 +402,10 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
                 case KEY_FORMLIST_URL:
                 case KEY_SUBMISSION_URL:
                     preference.setSummary(newValue.toString());
+
+                    String customEndpointId = FileUtils.getMd5Hash(new ByteArrayInputStream(newValue.toString().getBytes()));
+                    String action = preference.getKey() + " " + customEndpointId;
+                    analytics.logEvent(SET_CUSTOM_ENDPOINT, action);
                     break;
             }
             return true;
@@ -446,7 +436,7 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
         String urlHash = FileUtils.getMd5Hash(
                 new ByteArrayInputStream(url.getBytes()));
 
-        Collect.getInstance().logRemoteAnalytics("SetServer", scheme + " " + host, urlHash);
+        analytics.logEvent(SET_SERVER, scheme + " " + host, urlHash);
     }
 
     private void maskPasswordSummary(String password) {
@@ -535,4 +525,5 @@ public class ServerPreferencesFragment extends BasePreferenceFragment implements
     public void doBack() {
         runGoogleAccountValidation();
     }
+
 }
