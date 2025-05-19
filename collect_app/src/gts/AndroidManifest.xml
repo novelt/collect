@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+
+        <activity
+            android:name="ch.novelt.gts.odk.collect.android.external.GtsFormUriActivity"
+            android:exported="true"
+            tools:ignore="AppLinkUrlError">
+
+            <intent-filter>
+                <action android:name="${applicationId}" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="vnd.android.cursor.item/vnd.odk.form" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.odk.instance" />
+            </intent-filter>
+        </activity>
+
+    </application>
+</manifest>

@@ -16,32 +16,46 @@ package org.odk.collect.android.external;
 
 import static org.odk.collect.android.database.DatabaseObjectMapper.getInstanceFromValues;
 import static org.odk.collect.android.database.instances.DatabaseInstanceColumns._ID;
+import static org.odk.collect.android.external.FormsProvider.deferDaggerInit;
 import static org.odk.collect.android.external.InstancesContract.CONTENT_ITEM_TYPE;
 import static org.odk.collect.android.external.InstancesContract.CONTENT_TYPE;
 import static org.odk.collect.android.external.InstancesContract.getUri;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Intent;
 import android.content.UriMatcher;
 import android.database.Cursor;
+import android.database.MatrixCursor;
 import android.net.Uri;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.FileProvider;
 
+import org.json.JSONArray;
+import org.odk.collect.android.BuildConfig;
 import org.odk.collect.android.analytics.AnalyticsEvents;
 import org.odk.collect.android.analytics.AnalyticsUtils;
 import org.odk.collect.android.dao.CursorLoaderFactory;
 import org.odk.collect.android.database.instances.DatabaseInstanceColumns;
 import org.odk.collect.android.database.instances.DatabaseInstancesRepository;
-import org.odk.collect.android.injection.DaggerUtils;
 import org.odk.collect.android.instancemanagement.InstanceDeleter;
 import org.odk.collect.android.storage.StoragePathProvider;
 import org.odk.collect.android.utilities.ContentUriHelper;
 import org.odk.collect.android.utilities.FormsRepositoryProvider;
 import org.odk.collect.android.utilities.InstancesRepositoryProvider;
+import org.odk.collect.android.utilities.ZipUtils;
+import org.odk.collect.androidshared.utils.PathUtils;
 import org.odk.collect.forms.instances.Instance;
+import org.odk.collect.projects.Project;
 import org.odk.collect.projects.ProjectsRepository;
 import org.odk.collect.settings.SettingsProvider;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import javax.inject.Inject;
 
@@ -74,7 +88,7 @@ public class InstanceProvider extends ContentProvider {
     @Override
     public Cursor query(@NonNull Uri uri, String[] projection, String selection, String[] selectionArgs,
                         String sortOrder) {
-        DaggerUtils.getComponent(getContext()).inject(this);
+        deferDaggerInit(this);
 
         String projectId = getProjectId(uri);
 
@@ -92,6 +106,12 @@ public class InstanceProvider extends ContentProvider {
             case INSTANCE_ID:
                 String id = String.valueOf(ContentUriHelper.getIdFromUri(uri));
                 c = dbQuery(projectId, projection, _ID + "=?", new String[]{id}, null);
+                final var gtsStep = uri.getQueryParameter("gtsStep");
+                if ("ASK_GRANT".equals(gtsStep)) {
+                    if (c.moveToNext()) {
+                        c = queryGtsHookGrantPermissions(c, projectId);
+                    }
+                }
                 break;
 
             default:
@@ -123,7 +143,8 @@ public class InstanceProvider extends ContentProvider {
 
     @Override
     public Uri insert(@NonNull Uri uri, ContentValues initialValues) {
-        DaggerUtils.getComponent(getContext()).inject(this);
+        Log.i("ODK_MIGRATION", "> InstanceProvider > insert... (" + uri + ")");
+        deferDaggerInit(this);
 
         String projectId = getProjectId(uri);
         logServerEvent(projectId, AnalyticsEvents.INSTANCE_PROVIDER_INSERT);
@@ -137,7 +158,17 @@ public class InstanceProvider extends ContentProvider {
             throw new SecurityException();
         }
 
-        Instance newInstance = instancesRepositoryProvider.create(projectId).save(getInstanceFromValues(initialValues));
+        Instance instance = getInstanceFromValues(initialValues);
+        final String instanceFolderNameZip = Uri.parse(instance.getInstanceFilePath()).getLastPathSegment();
+        final var gtsStep = uri.getQueryParameter("gtsStep");
+        if ("MIGRATION_ASK_GRANT".equals(gtsStep)) {
+            return insertGtsHookStep1(projectId, instanceFolderNameZip);
+        } else if ("MIGRATION_NOTIFY_ZIP_COPIED".equals(gtsStep)) {
+            instance = insertGtsHookStep2(projectId, instance);
+        }
+        Log.i("ODK_MIGRATION", "Inserting... : " + instance.getDisplayName() + " | " + instance.getInstanceFilePath());
+        Instance newInstance = instancesRepositoryProvider.create(projectId).save(instance);
+        Log.i("ODK_MIGRATION", "Inserted : " + instance.getDisplayName() + "(" + instance.getDbId() + ")");
         return getUri(projectId, newInstance.getDbId());
     }
 
@@ -148,7 +179,7 @@ public class InstanceProvider extends ContentProvider {
      */
     @Override
     public int delete(@NonNull Uri uri, String where, String[] whereArgs) {
-        DaggerUtils.getComponent(getContext()).inject(this);
+        deferDaggerInit(this);
 
         String projectId = getProjectId(uri);
         logServerEvent(projectId, AnalyticsEvents.INSTANCE_PROVIDER_DELETE);
@@ -207,7 +238,18 @@ public class InstanceProvider extends ContentProvider {
         if (queryParam != null) {
             return queryParam;
         } else {
-            return projectsRepository.getAll().get(0).getUuid();
+            final var projects = projectsRepository.getAll();
+            if (projects.isEmpty()) {
+                // create "default" project automatically as Collect is not launched before...
+                Log.i("GTS", "creating project...");
+                final var tmp = projectsRepository.save(new Project.New("GTS", "GTS", "#426fec")).getUuid();
+                Log.i("GTS", "created project : " + tmp);
+                return tmp;
+            } else {
+                final var tmp = projectsRepository.getAll().get(0).getUuid();
+                Log.i("GTS", "returning project: " + tmp);
+                return tmp;
+            }
         }
     }
 
@@ -218,5 +260,106 @@ public class InstanceProvider extends ContentProvider {
     static {
         URI_MATCHER.addURI(InstancesContract.AUTHORITY, "instances", INSTANCES);
         URI_MATCHER.addURI(InstancesContract.AUTHORITY, "instances/#", INSTANCE_ID);
+    }
+
+    //
+
+    public Cursor queryGtsHookGrantPermissions(final Cursor rawCursor, final String projectId) {
+        String extGtsTrackerDataJson = null;
+        final var instancesDir = storagePathProvider.create(projectId).getInstancesDir();
+        final var instanceFilePath = rawCursor.getString(rawCursor.getColumnIndex("instanceFilePath"));
+        final var instanceAbsoluteFilePath = PathUtils.getAbsoluteFilePath(instancesDir, instanceFilePath);
+        final var instanceFolder = new File(instanceAbsoluteFilePath).getParentFile();
+
+        if (instanceFolder.exists()) {
+            final var uris = new JSONArray();
+
+            final var allFiles = listAllFiles(instanceFolder);
+            for (final var file : allFiles) {
+                final var uri = FileProvider.getUriForFile(
+                        getContext(),
+                        BuildConfig.APPLICATION_ID + ".provider",
+                        file
+                );
+                final var callingPackage = getCallingPackage();
+                getContext().grantUriPermission(
+                        callingPackage,
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                );
+                uris.put(uri.toString());
+            }
+
+            extGtsTrackerDataJson = uris.toString(); // JSON array string
+        }
+
+        final var columnList = new ArrayList<>(Arrays.asList(rawCursor.getColumnNames()));
+        columnList.add("ext_gts_tracker_data");
+
+        final var matrixCursor = new MatrixCursor(columnList.toArray(new String[0]));
+        rawCursor.moveToPosition(-1);
+        while (rawCursor.moveToNext()) {
+            final var row = new Object[columnList.size()];
+            for (int i = 0; i < rawCursor.getColumnCount(); i++) {
+                row[i] = rawCursor.getString(i);
+            }
+            row[rawCursor.getColumnCount()] = extGtsTrackerDataJson;
+            matrixCursor.addRow(row);
+        }
+        rawCursor.close();
+        return matrixCursor;
+    }
+
+    private List<File> listAllFiles(File root) {
+        final var files = new ArrayList<File>();
+        final var listed = root.listFiles();
+
+        if (listed != null) {
+            for (final var f : listed) {
+                if (f.isDirectory()) {
+                    files.addAll(listAllFiles(f));
+                } else {
+                    files.add(f);
+                }
+            }
+        }
+
+        return files;
+    }
+
+    //
+
+    private Uri insertGtsHookStep1(final String projectId, final String instanceFolderNameZip) {
+        final var instancesDir = storagePathProvider.create(projectId).getInstancesDir();
+        final var instanceAbsoluteFilePath = PathUtils.getAbsoluteFilePath(instancesDir, instanceFolderNameZip);
+
+        final var uri = FileProvider.getUriForFile(
+                getContext(),
+                BuildConfig.APPLICATION_ID + ".provider",
+                new File(instanceAbsoluteFilePath)
+        );
+        final var callingPackage = getCallingPackage();
+        getContext().grantUriPermission(
+                callingPackage,
+                uri,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        );
+        Log.i("ODK_MIGRATION", "Granted write permission in " + instanceAbsoluteFilePath);
+        return uri;
+    }
+
+    private Instance insertGtsHookStep2(final String projectId, final Instance instance) {
+        final var instancesDir = storagePathProvider.create(projectId).getInstancesDir();
+        final var instanceAbsoluteFilePath = PathUtils.getAbsoluteFilePath(instancesDir, Uri.parse(instance.getInstanceFilePath()).getLastPathSegment());
+        final var instanceAbsoluteFile = new File(instanceAbsoluteFilePath);
+        Log.i("ODK_MIGRATION", "Unzipping... : " + instanceAbsoluteFilePath);
+        ZipUtils.unzip(new File[]{instanceAbsoluteFile});
+        Log.i("ODK_MIGRATION", "Unzipped : " + instanceAbsoluteFilePath);
+        instanceAbsoluteFile.deleteOnExit();
+
+        final var instanceXmlFile = FormsProvider.getOneXmlFileOtherwiseError(new File(instanceAbsoluteFile.getAbsolutePath().replace(".zip", "")));
+        Log.i("ODK_MIGRATION", "Found XML file : " + instanceXmlFile.getAbsolutePath());
+
+        return new Instance.Builder(instance).instanceFilePath(instanceXmlFile.getAbsolutePath()).build();
     }
 }

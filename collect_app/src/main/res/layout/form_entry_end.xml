@@ -53,7 +53,8 @@ the specific language governing permissions and limitations under the License.
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingHorizontal="@dimen/margin_standard"
-                android:paddingVertical="@dimen/margin_large">
+                android:paddingVertical="@dimen/margin_large"
+                android:visibility="gone">
 
                 <ImageView
                     android:id="@+id/instance_name_info_icon"

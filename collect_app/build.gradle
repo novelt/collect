@@ -84,10 +84,21 @@ android {
         testInstrumentationRunner('androidx.test.runner.AndroidJUnitRunner')
         vectorDrawables.useSupportLibrary = true
         archivesBaseName = 'ODK-Collect'
+
+        flavorDimensions "dimension"
+        productFlavors {
+            gts {
+                dimension "dimension"
+                applicationId('ch.novelt.gts.odk.collect.android')
+                versionCode 7
+                versionName "2.0.0"
+                archivesBaseName = "GTS-Collect-v$versionCode$versionName"
+            }
+        }
     }
 
     signingConfigs {
-        release {
+        novelt {
             if (secrets.getProperty('RELEASE_STORE_FILE')) {
                 storeFile file(secrets.getProperty('RELEASE_STORE_FILE'))
                 storePassword secrets.getProperty('RELEASE_STORE_PASSWORD')
@@ -96,7 +107,7 @@ android {
             }
         }
 
-        selfSignedRelease {
+        debug {
             storeFile file('../debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
@@ -109,7 +120,7 @@ android {
         // Release build for all forks
         release {
             if (secrets.getProperty('RELEASE_STORE_FILE')) {
-                signingConfig signingConfigs.release
+                signingConfig signingConfigs.novelt
             }
             minifyEnabled(true)
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
@@ -120,28 +131,33 @@ android {
         // Release build for the official ODK Collect app
         odkCollectRelease {
             if (secrets.getProperty('RELEASE_STORE_FILE')) {
-                signingConfig signingConfigs.release
+                signingConfig signingConfigs.novelt
             }
             minifyEnabled(true)
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             resValue("string", "mapbox_access_token", mapboxAccessToken)
-
-            matchingFallbacks = ['release'] // So other modules use release build type for this
+            matchingFallbacks = ["release"]
         }
 
-        selfSignedRelease {
-            signingConfig signingConfigs.selfSignedRelease
-
-            minifyEnabled(true)
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+        uat {
+            initWith(release)
+            applicationIdSuffix ".uat"
+            signingConfig signingConfigs.novelt
+            resValue("bool", "CRASHLYTICS_ENABLED", "false")
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
-            resValue("string", "mapbox_access_token", mapboxAccessToken)
-
-            matchingFallbacks = ['release'] // So other modules use release build type for this
+            matchingFallbacks = ["release"]
         }
-
+        stage {
+            initWith(release)
+            applicationIdSuffix ".stage"
+            signingConfig signingConfigs.novelt
+            resValue("bool", "CRASHLYTICS_ENABLED", "false")
+            resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
+            matchingFallbacks = ["release"]
+        }
         debug {
+            applicationIdSuffix ".debug"
             debuggable(true)
             resValue("string", "GOOGLE_MAPS_API_KEY", googleMapsApiKey)
             resValue("string", "mapbox_access_token", mapboxAccessToken)
@@ -226,7 +242,7 @@ configurations.all {
         // Newer Jackson versions cannot be ued until Collect minSDK >= 26 (https://github.com/FasterXML/jackson-databind#android)
         force 'com.fasterxml.jackson.core:jackson-databind:2.13.5'
     }
-    
+
     transitive = true
 }
 
@@ -297,7 +313,7 @@ dependencies {
     implementation libs.myanmarCalendar
     implementation libs.bikramSambat
     implementation libs.commonsIo
-    implementation (libs.opencsv) {
+    implementation(libs.opencsv) {
         exclude group: 'commons-logging'
     }
     implementation(libs.javarosa) {
@@ -350,7 +366,8 @@ dependencies {
 
     testImplementation project(':androidtest')
     testImplementation(project(path: ':test-shared')) {
-        exclude group: 'org.robolectric' // Some tests in `collect_app` don't work with newer Robolectric
+        exclude group: 'org.robolectric'
+        // Some tests in `collect_app` don't work with newer Robolectric
     }
     testImplementation(project(":shadows"))
     testImplementation(project(":test-forms"))
@@ -385,12 +402,13 @@ dependencies {
 
     debugImplementation project(':fragments-test')
     debugImplementation(project(':test-shared',)) {
-        exclude group: 'org.robolectric' // Some tests in `collect_app` don't work with newer Robolectric
+        exclude group: 'org.robolectric'
+        // Some tests in `collect_app` don't work with newer Robolectric
     }
 
-    // Real LeakCanary for debug and selfSigned builds only: notifications, analysis, etc
-    debugImplementation libs.leakcanary
-    selfSignedReleaseImplementation libs.leakcanary
+//    // Real LeakCanary for debug and selfSigned builds only: notifications, analysis, etc
+//    debugImplementation libs.leakcanary
+//    selfSignedReleaseImplementation libs.leakcanary
 }
 
 // Must be at bottom to prevent dependency collisions

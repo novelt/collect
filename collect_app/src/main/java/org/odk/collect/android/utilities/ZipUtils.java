@@ -60,14 +60,19 @@ public final class ZipUtils {
 
         Timber.i("Found zipEntry with name: %s", fileName);
 
-        if (fileName.contains("/") || fileName.contains("\\")) {
-            // that means that this is a directory of a file inside a directory, so ignore it
-            Timber.w("Ignored: %s", fileName);
-            return;
-        }
+//        if (fileName.contains("/") || fileName.contains("\\")) {
+//            // that means that this is a directory of a file inside a directory, so ignore it
+//            Timber.w("Ignored: %s", fileName);
+//            return;
+//        }
 
         // extract the new file
         targetFile = new File(zipFile.getParentFile(), fileName);
+
+        if (fileName.contains("/") || fileName.contains("\\")) {
+            targetFile.getParentFile().mkdirs();
+        }
+
         try (FileOutputStream fileOutputStream = new FileOutputStream(targetFile)) {
             IOUtils.copy(zipInputStream, fileOutputStream);
         }

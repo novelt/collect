@@ -34,15 +34,21 @@ import static org.odk.collect.android.database.forms.DatabaseFormColumns.SUBMISS
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.net.Uri;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.FileProvider;
 
 import org.jetbrains.annotations.NotNull;
+import org.odk.collect.android.BuildConfig;
 import org.odk.collect.android.analytics.AnalyticsEvents;
 import org.odk.collect.android.analytics.AnalyticsUtils;
+import org.odk.collect.android.application.Collect;
 import org.odk.collect.android.dao.CursorLoaderFactory;
 import org.odk.collect.android.database.forms.DatabaseFormsRepository;
 import org.odk.collect.android.formmanagement.LocalFormUseCases;
@@ -50,19 +56,28 @@ import org.odk.collect.android.injection.DaggerUtils;
 import org.odk.collect.android.itemsets.FastExternalItemsetsRepository;
 import org.odk.collect.android.storage.StoragePathProvider;
 import org.odk.collect.android.utilities.ContentUriHelper;
+import org.odk.collect.android.utilities.FileUtils;
 import org.odk.collect.android.utilities.FormsRepositoryProvider;
 import org.odk.collect.android.utilities.InstancesRepositoryProvider;
+import org.odk.collect.android.utilities.ZipUtils;
+import org.odk.collect.forms.Form;
 import org.odk.collect.forms.FormsRepository;
 import org.odk.collect.forms.instances.InstancesRepository;
+import org.odk.collect.projects.Project;
 import org.odk.collect.projects.ProjectsRepository;
 import org.odk.collect.settings.SettingsProvider;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
+
+import timber.log.Timber;
 
 public class FormsProvider extends ContentProvider {
 
@@ -92,8 +107,24 @@ public class FormsProvider extends ContentProvider {
     SettingsProvider settingsProvider;
 
     // Do not call it in onCreate() https://stackoverflow.com/questions/23521083/inject-database-in-a-contentprovider-with-dagger
-    private void deferDaggerInit() {
-        DaggerUtils.getComponent(getContext()).inject(this);
+    public static <T extends ContentProvider> void deferDaggerInit(final T contentProvider) {
+        final Context context = contentProvider.getContext();
+        final var appCtx = context.getApplicationContext();
+        if (appCtx instanceof Collect app) {
+            app.ensureDaggerInitialized();
+        } else {
+            throw new IllegalStateException("Application must extend Collect");
+        }
+
+        var component = DaggerUtils.getComponent(context);
+        if (component == null) {
+            throw new IllegalStateException("Dagger initialization failed");
+        }
+        if (contentProvider instanceof FormsProvider formsProvider) {
+            component.inject(formsProvider);
+        } else if (contentProvider instanceof InstanceProvider instanceProvider) {
+            component.inject(instanceProvider);
+        }
     }
 
     @Override
@@ -103,7 +134,7 @@ public class FormsProvider extends ContentProvider {
 
     @Override
     public Cursor query(@NonNull Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
-        deferDaggerInit();
+        deferDaggerInit(this);
 
         String projectId = getProjectId(uri);
 
@@ -184,7 +215,16 @@ public class FormsProvider extends ContentProvider {
 
     @Override
     public synchronized Uri insert(@NonNull Uri uri, ContentValues initialValues) {
-        return null;
+        deferDaggerInit(this);
+
+        final var gtsStep = uri.getQueryParameter("gtsStep");
+        if ("ASK_FILE_CREATION".equals(gtsStep)) {
+            return insertGtsHookStep1(uri);
+        } else if ("NOTIFY_FILE_CREATED".equals(gtsStep)) {
+            return insertGtsHookStep2(uri, initialValues);
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -194,7 +234,7 @@ public class FormsProvider extends ContentProvider {
      */
     @Override
     public int delete(@NonNull Uri uri, String where, String[] whereArgs) {
-        deferDaggerInit();
+        deferDaggerInit(this);
 
         int count;
 
@@ -244,7 +284,18 @@ public class FormsProvider extends ContentProvider {
         if (queryParam != null) {
             return queryParam;
         } else {
-            return projectsRepository.getAll().get(0).getUuid();
+            final var projects = projectsRepository.getAll();
+            if (projects.isEmpty()) {
+                // create "default" project automatically as Collect is not launched before...
+                Log.i("GTS", "creating project...");
+                final var tmp = projectsRepository.save(new Project.New("GTS", "GTS", "#426fec")).getUuid();
+                Log.i("GTS", "created project : " + tmp);
+                return tmp;
+            } else {
+                final var tmp = projectsRepository.getAll().get(0).getUuid();
+                Log.i("GTS", "returning project: " + tmp);
+                return tmp;
+            }
         }
     }
 
@@ -261,5 +312,119 @@ public class FormsProvider extends ContentProvider {
         URI_MATCHER.addURI(FormsContract.AUTHORITY, "forms/#", FORM_ID);
         // Only available for query and type
         URI_MATCHER.addURI(FormsContract.AUTHORITY, "newest_forms_by_form_id", NEWEST_FORMS_BY_FORM_ID);
+    }
+
+    //
+
+    private Uri insertGtsHookStep1(@NonNull Uri uri) {
+        final var projectId = getProjectId(uri);
+
+        //
+        final var targetFile = getTargetFile(uri, projectId);
+
+        //
+        try {
+            targetFile.getParentFile().mkdirs();
+            if (!targetFile.exists()) {
+                boolean created = targetFile.createNewFile();
+                if (!created) {
+                    Timber.tag("GtsFormsProvider").e("Error while creating temporary file to grant GTS access : %s", targetFile.getName());
+                    return null;
+                }
+            }
+        } catch (IOException e) {
+            Timber.tag("GtsFormsProvider").e(e, "Error while creating temporary file to grant GTS access");
+            return null;
+        }
+
+        //
+        final var fileUri = FileProvider.getUriForFile(
+                getContext(),
+                BuildConfig.APPLICATION_ID + ".provider",
+                targetFile
+        );
+
+        //
+        final var callingPackage = getCallingPackage();
+        if (callingPackage != null) {
+            getContext().grantUriPermission(
+                    callingPackage,
+                    fileUri,
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            );
+        } else {
+            Timber.tag("GtsFormsProvider").w("Cannot determine calling package to grant permission to.");
+        }
+
+        //
+        return fileUri;
+    }
+
+    private Uri insertGtsHookStep2(@NonNull final Uri uri, ContentValues initialValues) {
+        final var projectId = getProjectId(uri);
+
+        // yb : rolling back to this solution implies no subfolder with GTS ID name (ie. <odk_forms_folder>/4.xml and not <odk_forms_folder>/4/4.xml)
+        //    : so take care, because when you unzip a form definition, the xml filename may enter in conflict with an existing one as the filename in the zip is not including GTS ID.
+//        return insertViaSyncFolder(projectId, initialValues);
+
+        //
+
+        var targetFile = getTargetFile(uri, projectId);
+        if (!targetFile.exists()) {
+            Timber.tag("GtsFormsProvider").e("File should exist in step 2...: %s", targetFile.getName());
+            return null;
+        }
+
+        if (targetFile.getName().endsWith(".zip")) {
+            ZipUtils.unzip(new File[]{targetFile});
+            targetFile = getOneXmlFileOtherwiseError(targetFile.getParentFile());
+        }
+        return insertViaParsingFile(projectId, initialValues, targetFile);
+    }
+
+    public static File getOneXmlFileOtherwiseError(final File folder) {
+        final var files = FileUtils.listFiles(folder);
+        final var filesXml = files.stream().filter(f -> f.getName().toLowerCase().endsWith(".xml")).collect(Collectors.toList());
+        if (filesXml.size() != 1) {
+            throw new IllegalStateException("Cannot find only one XML file inside '" + folder.getAbsolutePath() + "', found " + filesXml.size() + " files");
+        }
+        return filesXml.get(0);
+    }
+
+    private Uri insertViaParsingFile(final String projectId, final ContentValues initialValues, final File formDefFile) {
+        Form form;
+        try {
+            form = LocalFormUseCases.parseForm(formDefFile);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Cannot parse form file: " + formDefFile);
+        }
+
+        final String jrFormId = initialValues != null ? initialValues.getAsString("jrFormId") : null;
+        final String displayName = initialValues != null ? initialValues.getAsString("displayName") : null;
+        final var insertedForm = formsRepositoryProvider.create(projectId).save(
+                new Form.Builder(form)
+                        .formId(jrFormId).displayName(displayName)
+                        .build()
+        );
+
+        return Uri.parse("content://gts/forms/" + insertedForm.getDbId());
+    }
+
+    private File getTargetFile(@NonNull final Uri uri, final String projectId) {
+        final var segments = uri.getPathSegments();
+        if (segments.isEmpty()) {
+            return null;
+        }
+        final var fileName = segments.get(segments.size() - 1); // ie: "my_form.xml" ou "my_form.zip"
+
+        //
+        final var formsDir = new File(storagePathProvider.create(projectId).getFormsDir());
+        if (!formsDir.exists()) {
+            Timber.tag("GtsFormsProvider").e("Forms folder does not exist");
+            return null;
+        }
+
+        final var fileNameFolder = FileUtils.getFormBasename(new File(fileName).getName());
+        return new File(new File(formsDir, fileNameFolder), fileName);
     }
 }

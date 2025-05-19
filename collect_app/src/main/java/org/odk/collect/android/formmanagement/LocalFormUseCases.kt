@@ -210,8 +210,9 @@ object LocalFormUseCases {
         return !ignoredFile && (xmlFile || xhtmlFile)
     }
 
+    @JvmStatic
     @Throws(IllegalArgumentException::class)
-    private fun parseForm(formDefFile: File?): Form {
+    fun parseForm(formDefFile: File?): Form {
         // Probably someone overwrite the file on the sdcard
         // So re-parse it and update it's information
         val builder = Form.Builder()

@@ -84,6 +84,8 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.util.Locale;
 
+import timber.log.Timber;
+
 @SuppressWarnings("PMD.CouplingBetweenObjects")
 public class Collect extends Application implements
         LocalizedApplication,
@@ -142,10 +144,11 @@ public class Collect extends Application implements
         CrashHandler.install(this).launchApp(
                 () -> ExternalFilesUtils.testExternalFilesAccess(this),
                 () -> {
-                    setupDagger();
-                    DaggerUtils.getComponent(this).inject(this);
-
-                    applicationComponent.applicationInitializer().initialize();
+                    if (!daggerInitialized) {
+                        setupDagger();
+                        DaggerUtils.getComponent(this).inject(this);
+                        applicationComponent.applicationInitializer().initialize();
+                    }
                     fixGoogleBug154855417();
                     CollectStrictMode.enable();
                 }
@@ -337,5 +340,23 @@ public class Collect extends Application implements
     @Override
     public DrawDependencyComponent getDrawDependencyComponent() {
         return drawDependencyComponent;
+    }
+
+    //
+
+    private volatile boolean daggerInitialized = false;
+
+    public synchronized void ensureDaggerInitialized() {
+        if (!daggerInitialized) {
+            try {
+                setupDagger();
+                DaggerUtils.getComponent(this).inject(this);
+                applicationComponent.applicationInitializer().initialize();
+                daggerInitialized = true;
+            } catch (Exception e) {
+                Timber.e(e, "Failed to initialize Dagger");
+                throw new IllegalStateException("Dagger initialization failed", e);
+            }
+        }
     }
 }

@@ -43,7 +43,7 @@ import javax.inject.Inject
  * This class serves as a firewall for starting form filling. It should be used to do that
  * rather than [FormFillingActivity] directly as it ensures that the required data is valid.
  */
-class FormUriActivity : LocalizedActivity() {
+open class FormUriActivity : LocalizedActivity() {
 
     @Inject
     lateinit var projectsDataService: ProjectsDataService
