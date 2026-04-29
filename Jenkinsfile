@@ -68,7 +68,8 @@ pipeline  {
         stage('Build images') {
             environment {
                 NOVELT_KEYSTORE = credentials('NOVELT_ANDROID_KEYSTORE')
-                SECRETS_PROPERTIES = credentials('COLLECT_SECRETS_PROPERTIES')
+                // Note: this file is currently empty but needed for building, see: secrets.gradle
+                SECRETS_PROPERTIES = credentials('GTS_COLLECT_SECRETS_PROPERTIES')
             }
             steps {
                 wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
