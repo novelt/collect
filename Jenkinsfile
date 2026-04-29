@@ -13,6 +13,17 @@ pipeline  {
         APP_VERSION = "${env.BRANCH_NAME_CLEAN}-${env.BUILD_NUMBER}"
         SLACK_CHANNEL = "#gts-jenkins"
         OUT_FOLDER = "${WORKSPACE}/out_${APP_VERSION}"
+        // Current Hidora server:
+        FDROID_SERVER_HOST = 'gts-fdroid.sh1.hidora.com'
+        FDROID_SERVER_USER = 'fdroid'
+        FDROID_SERVER_CREDENTIAL = 'HIDORA_PRIVATE_KEY_FDROID_SERVER'
+        FDROID_SERVER_PROD_ROOT = "/var/www/store-prod/fdroid"
+        FDROID_SERVER_PROD_REPO_ROOT = "${FDROID_SERVER_PROD_ROOT}/repo"
+        FDROID_SERVER_UAT_ROOT = "/var/www/store-uat/fdroid"
+        FDROID_SERVER_UAT_REPO_ROOT = "${env.FDROID_SERVER_UAT_ROOT}/repo"
+
+        // OLD novelt server:
+        /*
         FDROID_SERVER_HOST = '10.1.2.53'
         FDROID_SERVER_USER = 'novelt'
         FDROID_SERVER_FDROID_ROOT = '/home/novelt/htdocs/store'
@@ -20,10 +31,12 @@ pipeline  {
         FDROID_SERVER_PROD_REPO_ROOT = "${FDROID_SERVER_PROD_ROOT}/repo"
         FDROID_SERVER_UAT_ROOT = "${env.FDROID_SERVER_FDROID_ROOT}/gts-uat"
         FDROID_SERVER_UAT_REPO_ROOT = "${env.FDROID_SERVER_UAT_ROOT}/repo"
-
+        */
         FDROID_PUBLISH_BRANCH = 'novelt/gts'
     }
-
+    parameters {
+        choice(name: 'TARGET_ENV', choices: 'Uat\nRelease', description: 'Publish to UAT or PROD store?')
+    }
     stages {
         stage("Init") {
             steps {
@@ -70,7 +83,7 @@ pipeline  {
             }
             post {
                 failure {
-                    slackSend channel: "${SLACK_CHANNEL}", color:"danger", message:"""Build Failed - <https://github.com/novelt/GTS/pull/${env.PR_NUMBER}|${env.BRANCH_NAME}> ${env.BUILD_NUMBER} (<http://jenkinsm01.ad.novel-t.ch:8080/job/GTS/job/${env.BRANCH_NAME}|Open Jenkins>)
+                    slackSend channel: "${SLACK_CHANNEL}", color:"danger", message:"""GTS collect - Build docker images failed - <https://github.com/novelt/collect/pull/${env.PR_NUMBER}|${env.BRANCH_NAME}> ${env.BUILD_NUMBER} (<https://jenkins.novel-t.ch/job/GTS-PIPELINES/job/${env.BRANCH_NAME}|Open Jenkins>)
                     Commit by: ${GIT_COMMIT_USER}
                     Message: ${GIT_MESSAGE}
                     """
@@ -145,22 +158,23 @@ pipeline  {
             }
             post {
                 failure {
-                    slackSend channel: "${SLACK_CHANNEL}", color:"danger", message:"""Build Failed - <https://github.com/novelt/GTS/pull/${env.PR_NUMBER}|${env.BRANCH_NAME}> ${env.BUILD_NUMBER} (<http://jenkinsm01.ad.novel-t.ch:8080/job/GTS/job/${env.BRANCH_NAME}|Open Jenkins>)
+                    slackSend channel: "${SLACK_CHANNEL}", color:"danger", message:"""GTS collect - Build APKs failed - <https://github.com/novelt/collect/pull/${env.PR_NUMBER}|${env.BRANCH_NAME}> ${env.BUILD_NUMBER} (<https://jenkins.novel-t.ch/job/GTS-PIPELINES/job/${env.BRANCH_NAME}|Open Jenkins>)
                     Commit by: ${GIT_COMMIT_USER}
                     Message: ${GIT_MESSAGE}
                     """
                 }
             }
         }
-        stage('Publish to FDroid') {
+        stage('Publish to FDroid UAT') {
             when {
                 allOf {
                     environment name: "PERFORM_FDROID_PUBLISH", value: "true"
+                    environment name: "TARGET_ENV", value: "Uat"
                 }
             }
             steps {
                 wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
-                    sshagent(['	NOVELT_PRIVATE_KEY_FDROID_SERVER']) {
+                    sshagent([FDROID_SERVER_CREDENTIAL]) {
                         // UAT STORE
                         sh '''
                             set -x
@@ -172,9 +186,30 @@ pipeline  {
                             fi
                             ssh -o StrictHostKeyChecking=no "${FDROID_SERVER_USER}@${FDROID_SERVER_HOST}" "cd ${FDROID_SERVER_UAT_ROOT} && fdroid update"
                         '''
+                    }
+                }
+            }
+            post {
+                failure {
+                    slackSend channel: "${SLACK_CHANNEL}", color:"danger", message:"""GTS collect - Publish to FDroid UAT failed - <https://github.com/novelt/collect/pull/${env.PR_NUMBER}|${env.BRANCH_NAME}> ${env.BUILD_NUMBER} (<https://jenkins.novel-t.ch/job/GTS-PIPELINES/job/${env.BRANCH_NAME}|Open Jenkins>)
+                    Commit by: ${GIT_COMMIT_USER}
+                    Message: ${GIT_MESSAGE}
+                    """
+                }
+            }
+        }
 
+        stage('Publish to FDroid PROD') {
+            when {
+                allOf {
+                    environment name: "PERFORM_FDROID_PUBLISH", value: "true"
+                    environment name: "TARGET_ENV", value: "Release"
+                }
+            }
+            steps {
+                wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
+                    sshagent([FDROID_SERVER_CREDENTIAL]) {
                         // PROD STORE
-
                         sh '''
                             set -x
                             release_apk_file_path=$(find ${OUT_FOLDER}/apk/gts/release/*.apk -type f)
@@ -189,7 +224,7 @@ pipeline  {
             }
             post {
                 failure {
-                    slackSend channel: "${SLACK_CHANNEL}", color:"danger", message:"""Build Failed - <https://github.com/novelt/GTS/pull/${env.PR_NUMBER}|${env.BRANCH_NAME}> ${env.BUILD_NUMBER} (<http://jenkinsm01.ad.novel-t.ch:8080/job/GTS/job/${env.BRANCH_NAME}|Open Jenkins>)
+                    slackSend channel: "${SLACK_CHANNEL}", color:"danger", message:"""GTS collect - Publish to FDroid failed - <https://github.com/novelt/collect/pull/${env.PR_NUMBER}|${env.BRANCH_NAME}> ${env.BUILD_NUMBER} (<https://jenkins.novel-t.ch/job/GTS-PIPELINES/job/${env.BRANCH_NAME}|Open Jenkins>)
                     Commit by: ${GIT_COMMIT_USER}
                     Message: ${GIT_MESSAGE}
                     """
