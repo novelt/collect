@@ -13,8 +13,8 @@ pipeline  {
         APP_VERSION = "${env.BRANCH_NAME_CLEAN}-${env.BUILD_NUMBER}"
         SLACK_CHANNEL = "#gts-jenkins"
         OUT_FOLDER = "${WORKSPACE}/out_${APP_VERSION}"
-        // Current Hidora server:
-        FDROID_SERVER_HOST = 'gts-fdroid.sh1.hidora.com'
+        // Hidora server using VPN ip: gts-fdroid.sh1.hidora.com
+        FDROID_SERVER_HOST = '10.105.20.13'
         FDROID_SERVER_USER = 'fdroid'
         FDROID_SERVER_CREDENTIAL = 'HIDORA_PRIVATE_KEY_FDROID_SERVER'
         FDROID_SERVER_PROD_ROOT = "/var/www/store-prod/fdroid"
